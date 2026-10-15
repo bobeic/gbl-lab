@@ -57,9 +57,12 @@ TypeScript everywhere, running in the browser as a static site; heavy batch work
 ## 4. Battle engine
 
 ### 4.1 Core contract
-`step(state: BattleState, actionA: Action, actionB: Action): { state: BattleState; events: BattleEvent[] }`
-- Pure and deterministic given a seeded RNG carried in state. Does not mutate the input state.
-- Simultaneous resolution per 0.5s turn.
+A turn is two pure functions (revised after reading PvPoke's `Battle.step`, which decides actions after cooldowns tick and asks for the shield choice mid-resolution):
+- `beginTurn(state): BattleState` — ticks cooldowns.
+- `canAct(state, side): boolean` — whether a side may choose an action this turn.
+- `resolveTurn(state, actions: [Action | null, Action | null], decideShield: ShieldDecider): { state: BattleState; events: BattleEvent[] }`.
+- Fully deterministic: PvPoke's simulate mode has no randomness (chance buffs use a deterministic meter, ties resolve in side order), so no RNG is carried. Does not mutate the input state.
+- Simultaneous resolution per 0.5s turn, via PvPoke's action queue + priority model.
 
 ### 4.2 State
 Per side: team (array; length 1 in this sub-project), active index, per-Pokémon HP, energy (0–100), atk/def buff stages (−4..+4), fast-move cooldown progress, shields remaining, switch timer (unused for now). Global: turn number, RNG state, battle-over flag.
@@ -68,10 +71,12 @@ Per side: team (array; length 1 in this sub-project), active index, per-Pokémon
 - Fast moves take 1–5 turns, grant energy, deal damage per PvPoke's timing model.
 - Charged move allowed when energy ≥ cost; energy capped at 100.
 - Fast move in progress still lands when the opponent throws a charged move (per PvPoke).
-- Simultaneous charged moves: CMP — higher effective attack resolves first; exact ties resolve via seeded RNG.
+- Simultaneous charged moves: CMP — higher raw attack stat (excluding shadow/buffs, as PvPoke) resolves first and, when attacks differ, a Pokémon KO'd by the first charged move does not fire. Equal attack: both resolve in side order.
 - Damage = ⌊0.5 · Power · (Atk·atkMult)/(Def·defMult) · STAB · Eff · 1.3⌋ + 1; STAB 1.2; per-type effectiveness 1.6 / 0.625 / 0.390625 multiplied across defender types; charged moves assume perfect charge; shielded charged move deals 1.
 - Buff stage multipliers: (4+n)/4 for n>0, 4/(4−n) for n<0; stages clamped to ±4.
-- Chance-based buffs: configurable; default replicates PvPoke's ranking behaviour (exact rule confirmed from PvPoke source during implementation).
+- Chance-based buffs: PvPoke's deterministic "buff apply meter" — each charged move's meter starts at its chance (0 for exactly 50%), adds the chance per use, and the buff applies when the meter crosses a whole number. 100% buffs always apply. Debuffs still apply when the move is shielded.
+- Damage constants use PvPoke's float32-exact values (e.g. PvP bonus 1.2999999523162842, super effective 1.6000000238418579) and its multiplication order, so per-hit damage matches bit-for-bit.
+- Each side keeps a per-move "last computed damage" cache that PvPoke's decision logic reads; it is part of battle state.
 - Exact timing details are confirmed by reading PvPoke's source; where this spec and PvPoke disagree, PvPoke wins and the spec is updated.
 
 ### 4.4 Events
@@ -83,7 +88,7 @@ Every resolved action emits typed events (fast move used, damage, energy gained,
 ```ts
 interface Policy {
   chooseAction(state: BattleState, me: Side): Action;          // fast | charged(moveId) | wait
-  chooseShield(state: BattleState, me: Side, incoming: ChargedMove): boolean;
+  chooseShield(state: BattleState, me: Side, incomingMoveIndex: number, damage: number): boolean;
 }
 ```
 Future agents, search-based coaches, and human input implement the same interface.
@@ -146,8 +151,12 @@ gbl-lab/
 - Engine: illegal actions (charged move without energy, unknown move) throw rather than silently downgrade; policies are responsible for legal actions.
 - Turn-limit exceeded: error with the last events attached.
 
-## 10. Open items to resolve during implementation
-- Exact PvPoke fast-move damage timing and charged-move interruption rules (read source).
-- PvPoke's chance-buff default in rankings.
-- PvPoke's shield decision heuristic details.
-- Whether the CPM table lives in gamemaster.json.
+## 10. Findings from reading PvPoke (commit a23fb293300077028a65da534c73bd6367b7ef9d)
+- Fast moves queue on the turn chosen and land once `(turn − queuedTurn)·500 ≥ cooldown − 500`; a fast move "floating" when a charged move resolves lands on the following turn. After any charged move both cooldowns reset to 500 and no new actions are taken the next turn.
+- Chance buffs: deterministic meter (see 4.3).
+- Shields in simulate mode: shield by default whenever shields remain; `ActionLogic.wouldShield` overrides only for self-buffing bait moves (e.g. Power-Up Punch) and when the defender's best move lowers its own defense. Lives in `PvPokeLikePolicy.chooseShield`.
+- CPM table is a constant in `Pokemon.js` (109 entries, half-levels 1–55), not in gamemaster.json; vendored with source noted.
+- Ranking simulations use each species' `defaultIVs.cp1500` (level, atk, def, hp), not rank-1 IVs; the oracle and meta runs use the same.
+- Shadow Pokémon are separate gamemaster entries (`*_shadow`, tag `shadow`).
+- PvPoke runs headless in a Node `vm` with a small jQuery stub (spike verified: Medicham vs Azumarill 1-1 → 324/675).
+- Out of scope for this sub-project: form-changing Pokémon (Aegislash, Cramorant, Mimikyu, Morpeko) and mega Pokémon. They are excluded from the oracle acceptance set and the engine rejects them with a typed error. They are added in a follow-up because Mimikyu and Morpeko are in the meta.
