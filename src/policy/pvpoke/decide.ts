@@ -111,12 +111,7 @@ function required(move: ChargedMove | null, view: PokeView, what: string): Charg
   return move;
 }
 
-/** Choose `me`'s action this turn as PvPoke ActionLogic.decideAction does in default simulate mode. */
-export function decideAction(state: BattleState, me: Side, trace?: string[]): Action {
-  return decide(state, me, trace).action;
-}
-
-/** decideAction, also returning the `move.damage` writes (ActionLogic.js:320, 336, and wouldShield's 1159) it makes. */
+/** Choose `me`'s action as PvPoke ActionLogic.decideAction does in default simulate mode, with the `move.damage` writes (ActionLogic.js:320, 336, and wouldShield's 1159) it makes. */
 export function decide(state: BattleState, me: Side, trace?: string[]): PolicyDecision {
   const { poke, opponent } = views(state, me);
   const table = new DamageTable(state);
