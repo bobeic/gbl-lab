@@ -20,10 +20,26 @@ describe('sim CLI', () => {
   });
 
   it('rejects an unknown --policy instead of falling back to greedy', () => {
-    expect(() => execFileSync('npx', ['tsx', 'scripts/sim.ts', 'medicham', 'azumarill', '--policy', 'bogus'], { encoding: 'utf8', stdio: 'pipe' })).toThrow(/--policy must be one of: greedy, fast/);
+    expect(() => execFileSync('npx', ['tsx', 'scripts/sim.ts', 'medicham', 'azumarill', '--policy', 'bogus'], { encoding: 'utf8', stdio: 'pipe' })).toThrow(/--policy must be one of: pvpoke, greedy, fast/);
   });
 
   it('rejects --shields values that are not integers 0-2', () => {
     expect(() => execFileSync('npx', ['tsx', 'scripts/sim.ts', 'medicham', 'azumarill', '--shields', '3', '0'], { encoding: 'utf8', stdio: 'pipe' })).toThrow(/--shields must be two integers from 0 to 2/);
+  });
+
+  it('defaults to the PvPoke-like policy (Medicham vs Azumarill 1-1 = 324 / 675)', () => {
+    const out = execFileSync('npx', ['tsx', 'scripts/sim.ts', 'medicham', 'azumarill', '--shields', '1', '1', '--moves-a', 'COUNTER,ICE_PUNCH,PSYCHIC', '--moves-b', 'BUBBLE,ICE_BEAM,PLAY_ROUGH'], { encoding: 'utf8' });
+    expect(out).toContain('Rating 324 vs 675');
+    expect(out).not.toContain('Decision trace');
+  });
+
+  it('prints the decision trace under the timeline with --trace', () => {
+    const out = execFileSync('npx', ['tsx', 'scripts/sim.ts', 'medicham', 'azumarill', '--shields', '1', '1', '--moves-a', 'COUNTER,ICE_PUNCH,PSYCHIC', '--moves-b', 'BUBBLE,ICE_BEAM,PLAY_ROUGH', '--trace'], { encoding: 'utf8' });
+    expect(out).toContain('Rating 324 vs 675');
+    expect(out).toContain('Decision trace');
+  });
+
+  it('rejects --trace with a policy that has no trace', () => {
+    expect(() => execFileSync('npx', ['tsx', 'scripts/sim.ts', 'medicham', 'azumarill', '--policy', 'fast', '--trace'], { encoding: 'utf8', stdio: 'pipe' })).toThrow(/--trace is only supported with --policy pvpoke/);
   });
 });

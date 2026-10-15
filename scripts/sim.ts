@@ -2,13 +2,14 @@ import { readFileSync } from 'node:fs';
 import { loadDefaultGameData } from '../src/data';
 import { buildCombatant, type Combatant } from '../src/engine/combatant';
 import type { Side } from '../src/engine/state';
+import { PvPokeLikePolicy } from '../src/policy/pvpoke';
 import { FastOnlyPolicy, GreedyPolicy } from '../src/policy/testPolicies';
 import type { Policy } from '../src/policy/types';
 import { runMatchup, type MatchupResult } from '../src/sim/runMatchup';
 
 interface RankingEntry { speciesId: string; moveset: string[] }
 
-const POLICY_NAMES = ['greedy', 'fast'] as const;
+const POLICY_NAMES = ['pvpoke', 'greedy', 'fast'] as const;
 type PolicyName = (typeof POLICY_NAMES)[number];
 
 /** Render a matchup result as a readable turn-by-turn timeline. */
@@ -31,7 +32,7 @@ function arg(flag: string, count: number): string[] | undefined {
 }
 
 function parsePolicy(values: string[] | undefined): PolicyName {
-  if (values === undefined) return 'greedy';
+  if (values === undefined) return 'pvpoke';
   const name = values[0];
   if (!(POLICY_NAMES as readonly string[]).includes(name ?? '')) {
     throw new Error(`--policy must be one of: ${POLICY_NAMES.join(', ')} (got ${name ?? 'nothing'})`);
@@ -50,7 +51,7 @@ function parseShields(values: string[] | undefined): [number, number] {
 
 function main(): void {
   const [aId, bId] = process.argv.slice(2);
-  if (!aId || !bId) throw new Error('Usage: npm run sim -- <speciesA> <speciesB> [--shields 1 1] [--policy greedy|fast] [--moves-a F,C1,C2] [--moves-b F,C1,C2]');
+  if (!aId || !bId) throw new Error('Usage: npm run sim -- <speciesA> <speciesB> [--shields 1 1] [--policy pvpoke|greedy|fast] [--trace] [--moves-a F,C1,C2] [--moves-b F,C1,C2]');
   const gd = loadDefaultGameData();
   const rankings: RankingEntry[] = JSON.parse(readFileSync('data/rankings-1500.json', 'utf8'));
 
@@ -67,10 +68,14 @@ function main(): void {
   const b = make(bId, '--moves-b');
   const shields = parseShields(arg('--shields', 2));
   const policyName = parsePolicy(arg('--policy', 1));
-  const policy: Policy = policyName === 'fast' ? new FastOnlyPolicy() : new GreedyPolicy();
+  const trace = process.argv.includes('--trace');
+  if (trace && policyName !== 'pvpoke') throw new Error(`--trace is only supported with --policy pvpoke (got ${policyName})`);
+  const pvpoke = policyName === 'pvpoke' ? new PvPokeLikePolicy({ trace }) : undefined;
+  const policy: Policy = pvpoke ?? (policyName === 'fast' ? new FastOnlyPolicy() : new GreedyPolicy());
   const result = runMatchup(gd, a, b, { shields, policies: [policy, policy] });
   const moveNames = new Map([...gd.moves.values()].map((m) => [m.id, m.name]));
   console.log(formatTimeline(result, [a.species.name, b.species.name], moveNames));
+  if (pvpoke && trace) console.log(['', 'Decision trace', ...pvpoke.trace].join('\n'));
 }
 
 try {

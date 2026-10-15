@@ -1,7 +1,7 @@
 # Battle Engine — Design Spec (Sub-project 1)
 
 Date: 2026-10-15
-Status: Draft — awaiting review
+Status: Implemented (2026-10-15)
 
 ## 1. Context and intent
 
@@ -179,3 +179,4 @@ gbl-lab/
   - The attack-buff cap in the DP is a hard-coded ±4.
   - `changeTTKChance` is forced to 0 (560), so every state has chance 1. The DP stops at its first knockout state, and `stateList` holds at most one entry. The `turnsToKO` comparison (817) is therefore unreachable, and `needsBoost` is never set.
 - decideAction reads `move.dpe` as start-of-battle damage / energy (`PokeView.dpeOf`) but reads `move.damage` from the live value (`SideState.lastDamage` plus the writes above). The dpe-ratio check at 881 uses `damage / energy`, not `dpe`. The Melmetal-vs-Cresselia special case (502-506) compares `speciesName`, so it never fires for shadow forms.
+- CLI (Task 13): `PvPokeLikePolicy` holds no per-side state, so the CLI passes one instance for both sides and its `trace` interleaves both sides' decisions in turn order (each line is prefixed `turn N side S`). `--trace` is rejected with `greedy`/`fast`, which record nothing. The `--ivs` flag in §8 is not implemented; combatants always use the species' `defaultIVs.cp1500`.
