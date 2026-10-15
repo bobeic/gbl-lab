@@ -1,0 +1,22 @@
+{
+  "name": "gbl-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "update-data": "tsx scripts/update-data.ts",
+    "gen-oracle": "tsx scripts/gen-oracle.ts",
+    "compare-oracle": "tsx scripts/compare-oracle.ts",
+    "sim": "tsx scripts/sim.ts"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3",
+    "vitest": "2.1.8"
+  }
+}
