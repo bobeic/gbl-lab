@@ -3,6 +3,7 @@ import { moveDamage } from '../../engine/combatant';
 import type { BattleState, Side } from '../../engine/state';
 import type { Action } from '../../engine/turn';
 import { PolicyStateError } from '../../errors';
+import { wouldShieldViews } from './shield';
 import { views, type PokeView } from './view';
 
 /** A PvPoke `move.damage` write made inside decideAction (ActionLogic.js:320, 336 and wouldShield's 1159). */
@@ -75,6 +76,12 @@ export function decide(state: BattleState, me: Side, trace?: string[]): Decision
   const { poke, opponent } = views(state, me);
   const table = new DamageTable(state);
   const done = (action: Action): Decision => ({ action, lastDamageWrites: table.writes });
+  // PvPoke ActionLogic.wouldShield, including its `move.damage` write (ActionLogic.js:1159).
+  const shieldsAgainst = (attacker: PokeView, defender: PokeView, move: ChargedMove): boolean => {
+    const result = wouldShieldViews(attacker, defender, move, state.rules);
+    table.write(attacker, move, result.damage);
+    return result.value;
+  };
   const log = (message: () => string): void => {
     if (trace) trace.push(`turn ${state.turn} side ${me}:${message()}`);
   };
@@ -386,6 +393,51 @@ export function decide(state: BattleState, me: Side, trace?: string[]): Decision
   }
 
   // PvPoke ActionLogic.js:365-386 skipped: Cramorant Gulp Missile form change (form changes unsupported).
+
+  // PvPoke ActionLogic.js:388-437: if the opponent can't be fainted in a limited number of cycles, do a simpler selection
+  const bestChargedMove = required(poke.bestChargedMove, poke, 'best charged move');
+  const bestChargedDamage = damage(poke, opponent, bestChargedMove, state);
+  const bestCycleDamage = bestChargedDamage + fastDamage * Math.ceil(bestChargedMove.energy / poke.fastMove.energyGain);
+  let minimumCycleThreshold = 2;
+
+  // Prefer non-debuffing moves when it will take multiple to KO
+  if (bestChargedMove.selfDebuffing && bestChargedMove.energy > fastestChargedMove.energy
+    && poke.dpeOf(bestChargedMove) / poke.dpeOf(fastestChargedMove) < 2) {
+    minimumCycleThreshold = 1.1;
+  }
+
+  if (opponent.s.hp / bestCycleDamage > minimumCycleThreshold) {
+    // It's going to take a lot of cycles to KO, so just throw the best move
+
+    // Build up to best move
+    let selectedMove = bestChargedMove;
+
+    if (poke.activeChargedMoves.length > 1) {
+      for (const move of poke.activeChargedMoves) {
+        if (bestChargedMove.selfDebuffing && !move.selfDebuffing && poke.dpeOf(selectedMove) / poke.dpeOf(move) < 2) {
+          selectedMove = move;
+        }
+
+        if (poke.c.settings.baitShields && opponent.s.shields > 0 && !poke.activeChargedMoves[0]!.selfDebuffing
+          && shieldsAgainst(poke, opponent, move)) {
+          selectedMove = poke.activeChargedMoves[0]!;
+        }
+      }
+    }
+
+    if (poke.s.energy < selectedMove.energy) {
+      return done(FAST);
+    }
+    // Stack self debuffing moves
+    if (selectedMove.selfDebuffing) {
+      const energyToReach = poke.s.energy + Math.floor((100 - poke.s.energy) / poke.fastMove.energyGain) * poke.fastMove.energyGain;
+      if (poke.s.energy < energyToReach) {
+        return done(FAST);
+      }
+    }
+
+    return done({ type: 'charged', index: poke.indexOf(selectedMove) });
+  }
 
   return done(FAST);
 }
