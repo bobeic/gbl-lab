@@ -1,6 +1,6 @@
 // tests/combatant.test.ts
 import { describe, expect, it } from 'vitest';
-import { loadDefaultGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 import { GameDataError, StatsError, UnsupportedPokemonError } from '../src/errors';
 import { buildCombatant, effectiveStat, moveDamage } from '../src/engine/combatant';
 

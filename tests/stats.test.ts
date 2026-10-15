@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadDefaultGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 import { StatsError } from '../src/errors';
 import { cpmForLevel } from '../src/stats/cpm';
 import { bestLevelUnderCap, computeStats } from '../src/stats/stats';

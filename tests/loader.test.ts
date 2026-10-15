@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameDataError } from '../src/errors';
-import { loadDefaultGameData, loadGameData } from '../src/data';
+import { loadGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 
 const minimal = (): Record<string, unknown> => ({
   settings: { maxBuffStages: 4, buffDivisor: 4 },

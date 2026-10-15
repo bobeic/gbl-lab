@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { loadDefaultGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 import { buildCombatant, type PolicySettings } from '../src/engine/combatant';
 import { createBattle, other, type BattleState, type Side, type SideState } from '../src/engine/state';
 import { pvpokeShield, wouldShield } from '../src/policy/pvpoke/shield';

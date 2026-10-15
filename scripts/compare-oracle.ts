@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { loadDefaultGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 import type { GameData } from '../src/data/types';
 import { buildCombatant, type Combatant } from '../src/engine/combatant';
 import { PvPokeLikePolicy } from '../src/policy/pvpoke';

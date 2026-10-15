@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { loadDefaultGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 import type { ScriptedCharged } from '../src/policy/testPolicies';
 import type { OracleMon, PvpokeHarness, PvpokeRequest, PvpokeResult } from './oracle/harness';
 import { metaSpecies } from './oracle/meta';

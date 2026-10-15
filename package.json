@@ -7,7 +7,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && npm run typecheck:browser",
+    "typecheck:browser": "tsc --noEmit -p tsconfig.browser.json",
     "update-data": "tsx scripts/update-data.ts",
     "gen-oracle": "tsx scripts/gen-oracle.ts",
     "gen-decision-oracle": "tsx scripts/gen-decision-oracle.ts",

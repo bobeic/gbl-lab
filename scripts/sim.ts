@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { loadDefaultGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 import { buildCombatant, type Combatant } from '../src/engine/combatant';
 import type { Side } from '../src/engine/state';
 import { PvPokeLikePolicy } from '../src/policy/pvpoke';

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { loadDefaultGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 import { StatsError } from '../src/errors';
 import { defaultIvFloor, rankIvs, type IvRankEntry } from '../src/stats/ivRank';
 import type { IvCombinationsRequest } from '../scripts/oracle/harness';

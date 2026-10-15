@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadDefaultGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 import { TurnLimitError } from '../src/errors';
 import { buildCombatant } from '../src/engine/combatant';
 import type { BattleState, Side } from '../src/engine/state';

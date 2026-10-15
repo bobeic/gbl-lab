@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
-import { loadDefaultGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 import { buildCombatant } from '../src/engine/combatant';
 import { PvPokeLikePolicy } from '../src/policy/pvpoke';
 import { runMatchup } from '../src/sim/runMatchup';

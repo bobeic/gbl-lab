@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadDefaultGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 import { BattleSetupError, IllegalActionError } from '../src/errors';
 import { buildCombatant, type CombatantSpec } from '../src/engine/combatant';
 import { createBattle, type BattleState, type Side } from '../src/engine/state';

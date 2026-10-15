@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { loadDefaultGameData } from '../src/data';
+import { loadDefaultGameData } from '../src/data/node';
 import { buildCombatant } from '../src/engine/combatant';
 import { FastOnlyPolicy, ScriptedPolicy, type ScriptedCharged } from '../src/policy/testPolicies';
 import { runMatchup } from '../src/sim/runMatchup';
