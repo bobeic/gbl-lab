@@ -1,0 +1,153 @@
+# Battle Engine — Design Spec (Sub-project 1)
+
+Date: 2026-10-15
+Status: Draft — awaiting review
+
+## 1. Context and intent
+
+### What the user wants (stated)
+- Get better at Pokémon GO Battle League, Great League (1500 CP cap).
+- Understand *what* they are doing wrong and *where* — explanations over bare scores.
+- Team choice first (which 3, order, moves); in-battle coaching (shield/bait/switch decisions) later.
+- Motivating example: adding a good Melmetal made their team feel worse, likely because it displaced their bulky Pokémon. The tooling must be able to explain such regressions.
+- Only a handful of battle-ready Pokémon (PvPoke-recommended moves, powered to the 1500 cap). Manual entry is fine; no Poke Genie import needed.
+- A "wanted list": which species (and IVs) to look out for and prioritise, ranked by how much they'd improve the current team. Event alignment is a later extra.
+- Web UI usable on a phone.
+
+### Assumptions (not stated, agreed implicitly)
+- Fidelity to PvPoke matters; wrong advice is worse than none.
+- Meta opponents come from PvPoke's Great League rankings.
+
+### Overall roadmap (each sub-project gets its own spec → plan → build)
+1. **Battle engine + data + validation** — this spec.
+2. **Meta rankings** — offline batch producing ranking data artifacts.
+3. **Team builder web app** — roster, best teams, threats/coverage, team diff, wanted list with target IVs.
+4. **Later** — event alignment, play-vs-agent, coaching (battle replay with alternative decisions).
+
+### Platform decision
+TypeScript everywhere, running in the browser as a static site; heavy batch work runs offline in Node. Rationale: one language, free static hosting, phone access without a server, and PvPoke demonstrates in-browser simulation is fast enough. RL (if ever) can be trained elsewhere and exported. To be recorded as an ADR.
+
+## 2. Scope
+
+**In scope:** game data loading, stat/CP/level/IV-rank computation, a 1v1 battle engine with PvPoke-equivalent mechanics, a pluggable decision policy with a PvPoke-like default, battle rating, an oracle-based validation harness, and a debug CLI.
+
+**Out of scope:** 3v3 and switching (state shape must allow it), any UI, team building, rankings batch, agents.
+
+## 3. Data and stats
+
+### 3.1 Game data
+- Vendor PvPoke's `gamemaster.json` (MIT licensed, github.com/pvpoke/pvpoke) into `data/`, pinned to a recorded upstream commit, with `data/ATTRIBUTION.md`.
+- Vendor PvPoke's Great League overall rankings JSON (defines the meta and serves as a secondary oracle).
+- `npm run update-data` refreshes both from a specified upstream commit and records it.
+- A loader parses data into strict types: `Species` (dex, id, name, types, base stats, fast/charged move ids, elite moves, tags incl. shadow eligibility), `FastMove` (power, energy gain, turns), `ChargedMove` (power, energy cost, buffs + chance + target), `TypeChart`.
+- Loader validates on load: unknown move references, missing fields or bad numbers throw a descriptive error naming the offending entry.
+
+### 3.2 Stats
+- CP = max(10, ⌊(baseAtk+ivAtk) · √(baseDef+ivDef) · √(baseSta+ivSta) · CPM² / 10⌋).
+- HP = max(10, ⌊(baseSta+ivSta) · CPM⌋).
+- Level search: half-levels 1–50 (51 when best-buddy allowed); select the highest level with CP ≤ cap (default 1500).
+- Shadow: attack ×6/5, defense ×5/6 (as PvPoke).
+- CPM table sourced from game data if present, otherwise vendored constants with source noted.
+
+### 3.3 IV ranking
+- Stat product = effAtk · effDef · HP at the best level under the cap.
+- Rank all 4096 IV combinations for a species with a configurable IV floor (0 wild, 1 good friend, 2 great, 3 ultra, 4 best, 5 weather boost, 10 raid/research, 12 lucky).
+- API returns rank, stat product, % of rank-1, level, CP.
+
+## 4. Battle engine
+
+### 4.1 Core contract
+`step(state: BattleState, actionA: Action, actionB: Action): { state: BattleState; events: BattleEvent[] }`
+- Pure and deterministic given a seeded RNG carried in state. Does not mutate the input state.
+- Simultaneous resolution per 0.5s turn.
+
+### 4.2 State
+Per side: team (array; length 1 in this sub-project), active index, per-Pokémon HP, energy (0–100), atk/def buff stages (−4..+4), fast-move cooldown progress, shields remaining, switch timer (unused for now). Global: turn number, RNG state, battle-over flag.
+
+### 4.3 Mechanics (matched to PvPoke semantics)
+- Fast moves take 1–5 turns, grant energy, deal damage per PvPoke's timing model.
+- Charged move allowed when energy ≥ cost; energy capped at 100.
+- Fast move in progress still lands when the opponent throws a charged move (per PvPoke).
+- Simultaneous charged moves: CMP — higher effective attack resolves first; exact ties resolve via seeded RNG.
+- Damage = ⌊0.5 · Power · (Atk·atkMult)/(Def·defMult) · STAB · Eff · 1.3⌋ + 1; STAB 1.2; per-type effectiveness 1.6 / 0.625 / 0.390625 multiplied across defender types; charged moves assume perfect charge; shielded charged move deals 1.
+- Buff stage multipliers: (4+n)/4 for n>0, 4/(4−n) for n<0; stages clamped to ±4.
+- Chance-based buffs: configurable; default replicates PvPoke's ranking behaviour (exact rule confirmed from PvPoke source during implementation).
+- Exact timing details are confirmed by reading PvPoke's source; where this spec and PvPoke disagree, PvPoke wins and the spec is updated.
+
+### 4.4 Events
+Every resolved action emits typed events (fast move used, damage, energy gained, charged move used, shield used, buff applied, faint, battle end) with turn number and side. Used later for timelines and coaching.
+
+## 5. Decision policies
+
+### 5.1 Interface
+```ts
+interface Policy {
+  chooseAction(state: BattleState, me: Side): Action;          // fast | charged(moveId) | wait
+  chooseShield(state: BattleState, me: Side, incoming: ChargedMove): boolean;
+}
+```
+Future agents, search-based coaches, and human input implement the same interface.
+
+### 5.2 PvPokeLikePolicy (default)
+Re-implementation of PvPoke's `ActionLogic` in our own TypeScript with references to the original. Expected behaviours (to be verified against source, list corrected where it differs):
+- Search for the fastest KO sequence of charged moves given energy and opponent shields.
+- Bait shields with the cheaper move while the opponent has shields (toggle).
+- Optimise charged-move timing to avoid giving free fast-move turns.
+- Avoid self-debuffing moves when counterproductive.
+- Shield when the incoming hit would KO or is worth a shield per PvPoke's heuristic.
+- Options: shields per side (0/1/2), bait on/off.
+
+### 5.3 Test policies
+`FastOnlyPolicy`, `GreedyCheapestPolicy` — isolate engine mechanics from decision logic in tests.
+
+## 6. Simulation and scoring
+- `runMatchup(a: Combatant, b: Combatant, options): MatchupResult` loops `step` until a faint or turn limit, returning winner, HP/energy remaining, turns, battle rating per side, and the full event log.
+- Battle rating = 500 · (damage dealt / opponent max HP) + 500 · (HP remaining / own max HP). >500 is a win.
+- Turn limit guards against infinite loops; hitting it is reported as an error, not a draw.
+
+## 7. Validation
+
+### 7.1 Oracle
+- `scripts/gen-oracle.ts` (dev-only) runs PvPoke's simulator from a pinned checkout in Node and emits golden fixtures: top ~100 Great League meta × top ~100 at 0-0, 1-1, 2-2 shields (~15k matchups), recording winner, rating, HP remaining.
+- PvPoke code is never shipped or imported by `src/`.
+- Secondary check: matchups/counters listed in the vendored rankings file.
+
+### 7.2 Acceptance criteria
+- Stats, CP, level, per-hit damage: exact match on all tested cases.
+- Matchup winner agreement ≥ 98% across the oracle set.
+- Median absolute battle rating difference ≤ 25.
+- A mismatch report lists the worst disagreements with both event logs side by side.
+
+### 7.3 Unit tests
+Hand-computed damage cases, CMP tie, energy cap at 100, buff clamp at ±4, shield = 1 damage, level search at the cap boundary, IV rank against known published ranks, loader rejects malformed data.
+
+## 8. Tooling and layout
+- TypeScript strict, Vitest, Node ≥ 20, npm.
+- `npm run sim -- <speciesA> <speciesB> --shields 1 1 [--ivs ...]` prints the result and a turn timeline.
+
+```
+gbl-lab/
+  data/                  vendored gamemaster + rankings, ATTRIBUTION.md
+  src/data/              loader + types
+  src/stats/             CP / level / IV rank
+  src/engine/            state, step(), damage, buffs
+  src/policy/            PvPokeLikePolicy + test policies
+  src/sim/               runMatchup(), battle rating
+  scripts/               update-data, gen-oracle, sim CLI
+  tests/                 unit tests + oracle fixtures
+  docs/decisions/        ADRs
+  docs/superpowers/specs/
+  README.md
+```
+
+## 9. Error handling
+- Data load: fail fast with entry-specific messages.
+- Invalid input to stats (unknown species, IV out of 0–15, cap unreachable): typed errors.
+- Engine: illegal actions (charged move without energy, unknown move) throw rather than silently downgrade; policies are responsible for legal actions.
+- Turn-limit exceeded: error with the last events attached.
+
+## 10. Open items to resolve during implementation
+- Exact PvPoke fast-move damage timing and charged-move interruption rules (read source).
+- PvPoke's chance-buff default in rankings.
+- PvPoke's shield decision heuristic details.
+- Whether the CPM table lives in gamemaster.json.
