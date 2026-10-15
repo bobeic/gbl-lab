@@ -11,7 +11,8 @@ export interface PolicyDecision {
 export interface Policy {
   /**
    * Choose this turn's action. Called whenever the side's cooldown is 0 in a live battle, as PvPoke calls
-   * decideAction; on the turn after a charged move the action is discarded but its lastDamage updates still apply.
+   * decideAction. When `canAct(state, me)` is false (e.g. the turn after a charged move) the returned action is
+   * discarded and only its lastDamageUpdates apply.
    */
   chooseAction(state: BattleState, me: Side): PolicyDecision;
   /** Decide whether to shield an incoming charged move that would deal `damage`. */
