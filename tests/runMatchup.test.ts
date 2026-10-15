@@ -38,6 +38,20 @@ describe('runMatchup', () => {
     expect(charged).toEqual([[40, 1, 'ICE_BEAM', 40], [50, 0, 'DYNAMIC_PUNCH', 35]]);
   });
 
+  it('scripted: the last valid entry for a side and turn wins, out-of-range indexes are skipped (PvPoke Battle.js:740-757)', () => {
+    const script = new ScriptedPolicy([
+      { side: 1, turn: 40, index: 0, shielded: true },
+      { side: 1, turn: 40, index: 0, shielded: false },
+      { side: 0, turn: 50, index: 0, shielded: false },
+      { side: 0, turn: 50, index: 1, shielded: false },
+      { side: 0, turn: 50, index: 7, shielded: false },
+    ]);
+    const r = runMatchup(gd, med, azu, { shields: [1, 1], policies: [script, script] });
+    expect(r.ratings).toEqual([416, 583]);
+    const charged = r.events.filter((e) => e.kind === 'charged').map((e) => [e.turn, e.side, e.moveId, e.damage]);
+    expect(charged).toEqual([[40, 1, 'ICE_BEAM', 40], [50, 0, 'DYNAMIC_PUNCH', 35]]);
+  });
+
   it('ties are reported as no winner', () => {
     const r = runMatchup(gd, med, med, { shields: [0, 0], policies: [fast, fast] });
     expect(r.winner).toBeNull();

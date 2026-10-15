@@ -43,17 +43,28 @@ export interface ScriptedCharged {
 export class ScriptedPolicy implements Policy {
   constructor(private readonly script: readonly ScriptedCharged[]) {}
 
+  /** The script entry PvPoke acts on for this side and turn, or undefined when none applies. */
+  private entryFor(state: BattleState, side: Side): ScriptedCharged | undefined {
+    const moveCount = state.combatants[side].chargedMoves.length;
+    // PvPoke Battle.getTurnAction (Battle.js:740-760) scans every action and keeps the last match;
+    // entries whose index exceeds the moveset are skipped, an unaffordable last match falls back to a fast move.
+    let entry: ScriptedCharged | undefined;
+    for (const s of this.script) {
+      if (s.side === side && s.turn === state.turn && s.index < moveCount) entry = s;
+    }
+    return entry;
+  }
+
   /** Throw the scripted charged move for this turn if affordable, else the fast move. */
   chooseAction(state: BattleState, me: Side): Action {
-    const entry = this.script.find((s) => s.side === me && s.turn === state.turn);
+    const entry = this.entryFor(state, me);
     if (!entry) return { type: 'fast' };
-    const move = state.combatants[me].chargedMoves[entry.index];
-    return move && state.sides[me].energy >= move.energy ? { type: 'charged', index: entry.index } : { type: 'fast' };
+    const move = state.combatants[me].chargedMoves[entry.index]!;
+    return state.sides[me].energy >= move.energy ? { type: 'charged', index: entry.index } : { type: 'fast' };
   }
 
   /** Shield when the attacker's scripted move for this turn is marked shielded. */
   chooseShield(state: BattleState, me: Side): boolean {
-    const entry = this.script.find((s) => s.side === other(me) && s.turn === state.turn);
-    return entry?.shielded ?? false;
+    return this.entryFor(state, other(me))?.shielded ?? false;
   }
 }
