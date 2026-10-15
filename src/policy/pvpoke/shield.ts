@@ -1,9 +1,9 @@
 import type { ChargedMove, StatPair } from '../../data/types';
 import { moveDamage } from '../../engine/combatant';
-import { other, type BattleState, type Side } from '../../engine/state';
+import { other, type BattleRules, type BattleState, type Side } from '../../engine/state';
 import { addStages, requireStages } from '../../engine/turn';
 import { PolicyStateError } from '../../errors';
-import { views } from './view';
+import { views, type PokeView } from './view';
 
 /**
  * Decide whether the defender would shield `move`, as PvPoke ActionLogic.wouldShield does in simulate mode.
@@ -14,7 +14,15 @@ export function wouldShield(
 ): { value: boolean; damage: number } {
   if (defenderSide !== other(attackerSide)) throw new PolicyStateError(`Side ${defenderSide} is not side ${attackerSide}'s opponent`);
   const { poke: attacker, opponent: defender } = views(state, attackerSide);
-  const { maxBuffStages, buffDivisor } = state.rules;
+  return wouldShieldViews(attacker, defender, move, state.rules);
+}
+
+/** `wouldShield` on prebuilt views, for callers (decideAction) that ask it repeatedly about one state. */
+export function wouldShieldViews(
+  attacker: PokeView, defender: PokeView, move: ChargedMove, rules: BattleRules,
+): { value: boolean; damage: number } {
+  if (defender.side !== other(attacker.side)) throw new PolicyStateError(`Side ${defender.side} is not side ${attacker.side}'s opponent`);
+  const { maxBuffStages, buffDivisor } = rules;
 
   // PvPoke ActionLogic.js:1154-1161 (shield weights only feed decisionMethod "random"; skipped throughout)
   let useShield = false;
@@ -96,7 +104,7 @@ export function pvpokeShield(state: BattleState, me: Side, incomingMoveIndex: nu
 
   // PvPoke Battle.js:1075-1081 (canShield is checked by the engine; simulate mode is never sandboxed)
   let useShield = true;
-  const shieldDecision = wouldShield(state, attackerSide, me, move);
+  const shieldDecision = wouldShieldViews(attacker, defender, move, state.rules);
 
   // PvPoke Battle.js:1083-1095: don't shield early PUPs, Acid Sprays, or similar moves
   if (move.buffs && move.selfBuffing) {
