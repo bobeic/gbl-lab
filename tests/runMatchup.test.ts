@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { loadDefaultGameData } from '../src/data';
 import { TurnLimitError } from '../src/errors';
 import { buildCombatant } from '../src/engine/combatant';
+import type { BattleState, Side } from '../src/engine/state';
 import { FastOnlyPolicy, GreedyPolicy, ScriptedPolicy } from '../src/policy/testPolicies';
+import type { Policy, PolicyDecision } from '../src/policy/types';
 import { battleRating } from '../src/sim/rating';
 import { runMatchup } from '../src/sim/runMatchup';
 
@@ -64,6 +66,23 @@ describe('runMatchup', () => {
     const r = runMatchup(gd, med, solo, { shields: [1, 1], policies: [greedy, greedy] });
     expect(r.events.some((e) => e.kind === 'charged')).toBe(true);
     expect(r.shields).toEqual([0, 0]);
+  });
+
+  it('applies lastDamage updates in side order and still consults policies the turn after a charged move', () => {
+    const seen: { turn: number; me: Side; chargedLastTurn: boolean; oppCharged0: number }[] = [];
+    const greedy = new GreedyPolicy();
+    // Greedy actions, but every decision writes 999 onto its own charged move 1, which neither side's script uses.
+    const spy: Policy = {
+      chooseAction(state: BattleState, me: Side): PolicyDecision {
+        seen.push({ turn: state.turn, me, chargedLastTurn: state.chargedLastTurn, oppCharged0: state.sides[me === 0 ? 1 : 0].lastDamage.charged[1]! });
+        return { action: greedy.chooseAction(state, me).action, lastDamageUpdates: [{ side: me, chargedIndex: 1, damage: 999 }] };
+      },
+      chooseShield: () => false,
+    };
+    runMatchup(gd, med, azu, { shields: [0, 0], policies: [spy, spy] });
+    // Side 1 sees side 0's write from the same turn.
+    expect(seen.find((s) => s.turn === 1 && s.me === 1)?.oppCharged0).toBe(999);
+    expect(seen.some((s) => s.chargedLastTurn)).toBe(true);
   });
 
   it('throws TurnLimitError with events attached', () => {

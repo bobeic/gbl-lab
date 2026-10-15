@@ -1,7 +1,7 @@
 import type { GameData } from '../data/types';
 import type { Combatant } from '../engine/combatant';
 import { TurnLimitError } from '../errors';
-import { createBattle, SIDES, type Side } from '../engine/state';
+import { createBattle, SIDES, withLastDamage, type Side } from '../engine/state';
 import { beginTurn, canAct, resolveTurn, type Action, type BattleEvent } from '../engine/turn';
 import type { Policy } from '../policy/types';
 import { battleRating } from './rating';
@@ -35,8 +35,16 @@ export function runMatchup(gd: GameData, a: Combatant, b: Combatant, options: Ma
 
   while (!state.over) {
     if (state.turn > maxTurns) throw new TurnLimitError(`Battle exceeded ${maxTurns} turns`, events);
-    const pre = beginTurn(state);
-    const actions = SIDES.map((side) => (canAct(pre, side) ? policies[side]!.chooseAction(pre, side) : null)) as [Action | null, Action | null];
+    let pre = beginTurn(state);
+    const actions: [Action | null, Action | null] = [null, null];
+    // PvPoke Battle.js:326-331, 720-731: each side with no cooldown decides in order, seeing the previous side's
+    // move.damage writes; after a charged move the decision is still made, then discarded (Battle.js:335-337).
+    for (const side of SIDES) {
+      if (pre.sides[side].cooldownMs !== 0) continue;
+      const decision = policies[side]!.chooseAction(pre, side);
+      pre = withLastDamage(pre, decision.lastDamageUpdates ?? []);
+      if (canAct(pre, side)) actions[side] = decision.action;
+    }
     const result = resolveTurn(pre, actions, (s, defender, idx, dmg) => policies[defender]!.chooseShield(s, defender, idx, dmg));
     events.push(...result.events);
     state = result.state;

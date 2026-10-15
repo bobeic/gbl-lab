@@ -17,6 +17,10 @@ const CASES: [OracleMon, OracleMon, [number, number]][] = [
   [{ speciesId: 'melmetal', moveset: ['THUNDER_SHOCK', 'DOUBLE_IRON_BASH', 'DYNAMIC_PUNCH'] }, { speciesId: 'registeel', moveset: ['LOCK_ON', 'FOCUS_BLAST', 'ZAP_CANNON'] }, [0, 0]],
   [{ speciesId: 'medicham', moveset: ['COUNTER', 'POWER_UP_PUNCH', 'ICE_PUNCH'] }, { speciesId: 'medicham', moveset: ['COUNTER', 'POWER_UP_PUNCH', 'ICE_PUNCH'] }, [2, 2]],
   [{ speciesId: 'melmetal', moveset: ['THUNDER_SHOCK', 'SUPER_POWER', 'ROCK_SLIDE'] }, { speciesId: 'azumarill', moveset: ['BUBBLE', 'ICE_BEAM', 'PLAY_ROUGH'] }, [1, 1]],
+  // These three diverge unless decideAction's move.damage writes persist across turns (protocol rule 3, spec §10).
+  [{ speciesId: 'tinkaton', moveset: ['FAIRY_WIND', 'GIGATON_HAMMER', 'BULLDOZE'] }, { speciesId: 'snorlax_shadow', moveset: ['PSYWAVE', 'BODY_SLAM', 'SUPER_POWER'] }, [2, 2]],
+  [{ speciesId: 'quagsire', moveset: ['MUD_SHOT', 'AQUA_TAIL', 'STONE_EDGE'] }, { speciesId: 'rillaboom', moveset: ['SCRATCH', 'DRUM_BEATING', 'EARTH_POWER'] }, [2, 2]],
+  [{ speciesId: 'jellicent', moveset: ['HEX', 'SURF', 'SHADOW_BALL'] }, { speciesId: 'rillaboom', moveset: ['SCRATCH', 'DRUM_BEATING', 'EARTH_POWER'] }, [2, 1]],
 ];
 
 const build = (m: OracleMon) => buildCombatant(gd, { speciesId: m.speciesId, fastMoveId: m.moveset[0]!, chargedMoveIds: m.moveset.slice(1) });
@@ -36,4 +40,13 @@ describe('PvPokeLikePolicy reproduces PvPoke decisions', () => {
       expect(r.ratings).toEqual(expected.ratings);
     });
   }
+
+  it('records PvPoke logDecision messages only when tracing', () => {
+    const [a, b, shields] = CASES[0]!;
+    const traced = new PvPokeLikePolicy({ trace: true });
+    const silent = new PvPokeLikePolicy();
+    runMatchup(gd, build(a), build(b), { shields, policies: [traced, silent] });
+    expect(traced.trace).toContain("turn 15 side 0: doesn't use Ice Punch because it wants to bait");
+    expect(silent.trace).toEqual([]);
+  });
 });

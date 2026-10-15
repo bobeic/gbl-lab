@@ -1,24 +1,12 @@
 import type { ChargedMove, FastMove, StatPair } from '../../data/types';
 import { moveDamage } from '../../engine/combatant';
 import { clampStage } from '../../engine/damage';
-import type { BattleState, Side } from '../../engine/state';
+import type { BattleState, LastDamageUpdate, Side } from '../../engine/state';
 import type { Action } from '../../engine/turn';
 import { PolicyStateError } from '../../errors';
+import type { PolicyDecision } from '../types';
 import { wouldShieldViews } from './shield';
 import { views, type PokeView } from './view';
-
-/** A PvPoke `move.damage` write made inside decideAction (ActionLogic.js:320, 336 and wouldShield's 1159). */
-export interface LastDamageWrite {
-  readonly side: Side;
-  readonly chargedIndex: number;
-  readonly damage: number;
-}
-
-/** decideAction's chosen action plus the `move.damage` writes PvPoke would leave behind on its move objects. */
-export interface Decision {
-  readonly action: Action;
-  readonly lastDamageWrites: readonly LastDamageWrite[];
-}
 
 const FAST: Action = { type: 'fast' };
 
@@ -89,9 +77,9 @@ function stagesOf(move: ChargedMove): StatPair {
 /** Both sides' PvPoke `move.damage` values for one decision, mutable as PvPoke's move objects are. */
 class DamageTable {
   private readonly charged: [number[], number[]];
-  readonly writes: LastDamageWrite[] = [];
+  readonly writes: LastDamageUpdate[] = [];
 
-  constructor(private readonly state: BattleState) {
+  constructor(state: BattleState) {
     this.charged = [[...state.sides[0].lastDamage.charged], [...state.sides[1].lastDamage.charged]];
   }
 
@@ -128,11 +116,11 @@ export function decideAction(state: BattleState, me: Side, trace?: string[]): Ac
   return decide(state, me, trace).action;
 }
 
-/** decideAction, also returning the `move.damage` writes PvPoke's decision makes. */
-export function decide(state: BattleState, me: Side, trace?: string[]): Decision {
+/** decideAction, also returning the `move.damage` writes (ActionLogic.js:320, 336, and wouldShield's 1159) it makes. */
+export function decide(state: BattleState, me: Side, trace?: string[]): PolicyDecision {
   const { poke, opponent } = views(state, me);
   const table = new DamageTable(state);
-  const done = (action: Action): Decision => ({ action, lastDamageWrites: table.writes });
+  const done = (action: Action): PolicyDecision => ({ action, lastDamageUpdates: table.writes });
   // PvPoke ActionLogic.wouldShield, including its `move.damage` write (ActionLogic.js:1159).
   const shieldsAgainst = (attacker: PokeView, defender: PokeView, move: ChargedMove): boolean => {
     const result = wouldShieldViews(attacker, defender, move, state.rules);

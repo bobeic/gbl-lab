@@ -2,6 +2,7 @@ import type { StatPair } from '../data/types';
 import { moveDamage, type Combatant } from './combatant';
 import { MAX_ENERGY } from './constants';
 import { clampStage } from './damage';
+import { IllegalActionError } from '../errors';
 
 export type Side = 0 | 1;
 export const SIDES: readonly Side[] = [0, 1];
@@ -22,6 +23,27 @@ export interface SideState {
   readonly buffMeters: readonly (number | null)[];
   /** PvPoke's mutable move.damage: last computed damage per move, read by decision logic. */
   readonly lastDamage: { readonly fast: number; readonly charged: readonly number[] };
+}
+
+/** A new PvPoke `move.damage` value for one charged move, written by decision logic rather than by using the move. */
+export interface LastDamageUpdate {
+  readonly side: Side;
+  readonly chargedIndex: number;
+  readonly damage: number;
+}
+
+/** Return the state with charged-move lastDamage values replaced, in order (PvPoke assigning move.damage). */
+export function withLastDamage(state: BattleState, updates: readonly LastDamageUpdate[]): BattleState {
+  if (updates.length === 0) return state;
+  const charged: [number[], number[]] = [[...state.sides[0].lastDamage.charged], [...state.sides[1].lastDamage.charged]];
+  for (const u of updates) {
+    if (u.chargedIndex < 0 || u.chargedIndex >= charged[u.side].length) {
+      throw new IllegalActionError(`Side ${u.side} has no charged move ${u.chargedIndex} to update`);
+    }
+    charged[u.side][u.chargedIndex] = u.damage;
+  }
+  const side = (i: Side): SideState => ({ ...state.sides[i], lastDamage: { ...state.sides[i].lastDamage, charged: charged[i] } });
+  return { ...state, sides: [side(0), side(1)] };
 }
 
 export interface QueuedAction {

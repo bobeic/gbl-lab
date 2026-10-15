@@ -1,13 +1,12 @@
 import type { BattleState, Side } from '../engine/state';
 import { other } from '../engine/state';
-import type { Action } from '../engine/turn';
-import type { Policy } from './types';
+import type { PolicyDecision, Policy } from './types';
 
 /** Uses only fast moves and never shields. */
 export class FastOnlyPolicy implements Policy {
   /** Always choose the fast move. */
-  chooseAction(): Action {
-    return { type: 'fast' };
+  chooseAction(): PolicyDecision {
+    return { action: { type: 'fast' } };
   }
 
   /** Never shield. */
@@ -19,10 +18,10 @@ export class FastOnlyPolicy implements Policy {
 /** Throws the first affordable charged move in slot order; always shields. */
 export class GreedyPolicy implements Policy {
   /** Choose the first affordable charged move, else the fast move. */
-  chooseAction(state: BattleState, me: Side): Action {
+  chooseAction(state: BattleState, me: Side): PolicyDecision {
     const energy = state.sides[me].energy;
     const index = state.combatants[me].chargedMoves.findIndex((m) => energy >= m.energy);
-    return index >= 0 ? { type: 'charged', index } : { type: 'fast' };
+    return { action: index >= 0 ? { type: 'charged', index } : { type: 'fast' } };
   }
 
   /** Always shield. */
@@ -56,11 +55,11 @@ export class ScriptedPolicy implements Policy {
   }
 
   /** Throw the scripted charged move for this turn if affordable, else the fast move. */
-  chooseAction(state: BattleState, me: Side): Action {
+  chooseAction(state: BattleState, me: Side): PolicyDecision {
     const entry = this.entryFor(state, me);
-    if (!entry) return { type: 'fast' };
+    if (!entry) return { action: { type: 'fast' } };
     const move = state.combatants[me].chargedMoves[entry.index]!;
-    return state.sides[me].energy >= move.energy ? { type: 'charged', index: entry.index } : { type: 'fast' };
+    return { action: state.sides[me].energy >= move.energy ? { type: 'charged', index: entry.index } : { type: 'fast' } };
   }
 
   /** Shield when the attacker's scripted move for this turn is marked shielded. */

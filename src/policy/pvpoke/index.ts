@@ -1,7 +1,6 @@
 import type { BattleState, Side } from '../../engine/state';
-import type { Action } from '../../engine/turn';
-import type { Policy } from '../types';
-import { decideAction } from './decide';
+import type { Policy, PolicyDecision } from '../types';
+import { decide } from './decide';
 import { pvpokeShield } from './shield';
 
 /** Plays like PvPoke's default simulate mode: ActionLogic.decideAction for actions, Battle.useMove's shield rule. */
@@ -14,9 +13,9 @@ export class PvPokeLikePolicy implements Policy {
     this.tracing = opts?.trace ?? false;
   }
 
-  /** Choose this turn's action with the ported ActionLogic.decideAction. */
-  chooseAction(state: BattleState, me: Side): Action {
-    return decideAction(state, me, this.tracing ? this.trace : undefined);
+  /** Choose this turn's action with the ported ActionLogic.decideAction, passing on its move.damage writes. */
+  chooseAction(state: BattleState, me: Side): PolicyDecision {
+    return decide(state, me, this.tracing ? this.trace : undefined);
   }
 
   /** Decide whether to shield with the ported Battle.useMove shield logic. */

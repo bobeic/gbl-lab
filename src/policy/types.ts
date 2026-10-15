@@ -1,10 +1,19 @@
-import type { BattleState, Side } from '../engine/state';
+import type { BattleState, LastDamageUpdate, Side } from '../engine/state';
 import type { Action } from '../engine/turn';
+
+/** A policy's choice for one turn, plus any PvPoke `move.damage` writes its decision made (spec §10). */
+export interface PolicyDecision {
+  readonly action: Action;
+  readonly lastDamageUpdates?: readonly LastDamageUpdate[];
+}
 
 /** A decision-maker for one side of a battle. */
 export interface Policy {
-  /** Choose this turn's action; only called when the side can act. */
-  chooseAction(state: BattleState, me: Side): Action;
+  /**
+   * Choose this turn's action. Called whenever the side's cooldown is 0 in a live battle, as PvPoke calls
+   * decideAction; on the turn after a charged move the action is discarded but its lastDamage updates still apply.
+   */
+  chooseAction(state: BattleState, me: Side): PolicyDecision;
   /** Decide whether to shield an incoming charged move that would deal `damage`. */
   chooseShield(state: BattleState, me: Side, incomingMoveIndex: number, damage: number): boolean;
 }
