@@ -53,6 +53,7 @@ TypeScript everywhere, running in the browser as a static site; heavy batch work
 - Stat product = effAtk · effDef · HP at the best level under the cap.
 - Rank all 4096 IV combinations for a species with a configurable IV floor (0 wild, 1 good friend, 2 great, 3 ultra, 4 best, 5 weather boost, 10 raid/research, 12 lucky).
 - API returns rank, stat product, % of rank-1, level, CP.
+- Order, floors and level bounds follow PvPoke's `Pokemon.generateIVCombinations` exactly (see §10).
 
 ## 4. Battle engine
 
@@ -109,6 +110,7 @@ Re-implementation of PvPoke's `ActionLogic` in our own TypeScript with reference
 
 ## 6. Simulation and scoring
 - `runMatchup(a: Combatant, b: Combatant, options): MatchupResult` loops `step` until a faint or turn limit, returning winner, HP/energy remaining, turns, battle rating per side, and the full event log.
+- `step(state, policies): { state, events }` (src/sim/step.ts) is one turn of that loop; `runBattle(state, options)` runs the same loop from any live state, so a battle can start mid-way.
 - Battle rating = 500 · (damage dealt / opponent max HP) + 500 · (HP remaining / own max HP). >500 is a win.
 - Turn limit guards against infinite loops; hitting it is reported as an error, not a draw.
 
@@ -152,6 +154,7 @@ gbl-lab/
 - Invalid input to stats (unknown species, IV out of 0–15, cap unreachable): typed errors.
 - Engine: illegal actions (charged move without energy, unknown move) throw rather than silently downgrade; policies are responsible for legal actions.
 - Turn-limit exceeded: error with the last events attached.
+- Battle setup: shields outside integers 0–2 or start energy outside integers 0–100 throw `BattleSetupError` (no clamping); resolving or stepping a battle that is already over throws `IllegalActionError`; equipping the same charged move twice throws `GameDataError`.
 
 ## 10. Findings from reading PvPoke (commit a23fb293300077028a65da534c73bd6367b7ef9d)
 - Fast moves queue on the turn chosen and land once `(turn − queuedTurn)·500 ≥ cooldown − 500`; a fast move "floating" when a charged move resolves lands on the following turn. After any charged move both cooldowns reset to 500 and no new actions are taken the next turn.
@@ -180,3 +183,18 @@ gbl-lab/
   - `changeTTKChance` is forced to 0 (560), so every state has chance 1. The DP stops at its first knockout state, and `stateList` holds at most one entry. The `turnsToKO` comparison (817) is therefore unreachable, and `needsBoost` is never set.
 - decideAction reads `move.dpe` as start-of-battle damage / energy (`PokeView.dpeOf`) but reads `move.damage` from the live value (`SideState.lastDamage` plus the writes above). The dpe-ratio check at 881 uses `damage / energy`, not `dpe`. The Melmetal-vs-Cresselia special case (502-506) compares `speciesName`, so it never fires for shadow forms.
 - CLI (Task 13): `PvPokeLikePolicy` holds no per-side state, so the CLI passes one instance for both sides and its `trace` interleaves both sides' decisions in turn order (each line is prefixed `turn N side S`). `--trace` is rejected with `greedy`/`fast`, which record nothing. The `--ivs` flag in §8 is not implemented; combatants always use the species' `defaultIVs.cp1500`.
+- IV ranking (final review; `src/stats/ivRank.ts`, PvPoke Pokemon.js:466-608):
+  - Iteration is hp, then def, then atk, each from 15 down to the floor. The stat product is computed as `hp * atk * def`, and the sort is stable with ties at 0. Float rounding of the product decides near-ties, so both the order and the multiplication order matter. For example, PvPoke's Medicham #1 is 5/15/15, while `atk*def*hp` in atk-def-hp order gives 5/15/14.
+  - The ranking HP is `floor(cpm * (baseHp + hpIv))`, without the battle rule's minimum of 10 and without Shedinja's fixed 10. `IvRankEntry` reports these ranking stats.
+  - Default floor, applied in PvPoke's order with later rules winning: 0; 1 for `legendary`/`ultrabeast` without `wildlegendary`; 6 for a shadow `legendary`/`ultrabeast` (even if `wildlegendary`); 10 for `untradeable`; 2 if the equipped charged moves include RETURN. The Return rule depends on the equipped moves, not the species, so `rankIvs` takes `chargedMoveIds`. PvPoke's `initialize()` equips the first two charged moves of the alphabetically sorted pool, and that pool includes RETURN for `shadoweligible` species whose `level25CP` is at or under the cap. So, for example, Ivysaur ranks with floor 2 by default in PvPoke.
+  - Explicit floor: PvPoke's `ivFloor` argument is applied only when truthy, and untradeable and Return still override it. In `rankIvs`, an explicit `ivFloor` (including 0) is used as given. This is a deliberate API divergence; the default path (no `ivFloor`) is PvPoke's.
+  - Level bounds: the search starts at the species' gamemaster `levelFloor` (39 species, e.g. Giratina Origin 15, Tapu Fini 20, Shadow Heatran 8; default 1) and runs up to the level cap. Levels below `levelFloor` are never used. When the cap is 500 or less (Little Cup), PvPoke ignores `levelFloor` and starts at level 1. Species with no combination under the cap get an empty list from PvPoke, for example Darkrai, Shadow Darkrai, Volcarona, Keldeo, Zygarde Complete, Eternatus and Mega Mewtwo X/Y at 1500. `rankIvs` throws `StatsError` for them instead (§9).
+  - PvPoke's `megaLevel == 4` (`supermega`) level cap of 52 is not modelled. It made no difference in the sweep below.
+  - Verification: the `ivCombinations` harness probe was run over all 1,751 gamemaster species at caps 500, 1500 and 2500, with PvPoke's default equipped moves passed through. The full order and levels match for 1751/1751 at each cap. `tests/fixtures/iv-rank-oracle.json` (`npm run gen-iv-oracle`) locks in 25 cases covering every rule.
+- State shape and 3v3 (final review, deliberately deferred): `BattleState` has one `Combatant` and one `SideState` per side. It has no team array, active index or switch timer, which falls short of §4.2. This sub-project only needs 1v1, and none of the 1v1 parity work depends on the missing fields. When switching arrives, the following must change:
+  - `combatants`/`sides` become per-side teams with an active index and per-member HP, energy, buffs, buff meters and lastDamage.
+  - A switch timer and a switch `Action` are added, with PvPoke's switch and faint-replacement timing.
+  - `createBattle` takes teams.
+  - `Policy` gains a switch decision.
+  - `src/policy/pvpoke/view.ts` must stop assuming `Pokemon.resetMoves` runs only at battle start. In PvPoke's emulate (team) mode, `Battle.setNewPokemon` (Battle.js:111-113) also runs it for both Pokémon whenever one enters, so move ordering, `dpe` and the Registeel clause must be recomputed per entry and keyed by the active member.
+  - `battleRating` must be generalised for team results.
