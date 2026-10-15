@@ -9,7 +9,7 @@ const FILES = [
   'battle/actions/ActionLogic.js', 'battle/Battle.js',
 ];
 
-/** Load PvPoke from a checkout's src/ directory and return a simulate() function. */
+/** Load PvPoke from a checkout's src/ directory and return its simulate, moveMeta, shieldTrace and shieldAt probes. */
 function createPvpoke(srcDir) {
   const gamemaster = JSON.parse(fs.readFileSync(path.join(srcDir, 'data', 'gamemaster.json'), 'utf8'));
   const pending = [];
@@ -64,13 +64,95 @@ function createPvpoke(srcDir) {
           .map(function (e) { return { turn: e.turn, side: e.actor, type: e.type, name: e.name, damage: e.values ? e.values[0] : 0 }; }),
       });
     }
+    function __moveInfo(p) {
+      return {
+        active: p.activeChargedMoves.map(function (m) { return m.moveId; }),
+        best: p.bestChargedMove ? p.bestChargedMove.moveId : null,
+        fastest: p.fastestChargedMove ? p.fastestChargedMove.moveId : null,
+        charged: p.chargedMoves.filter(function (m) { return m; }).map(function (m) {
+          return { id: m.moveId, damage: m.damage, dpe: m.dpe, selfDebuffing: !!m.selfDebuffing, hasBuffs: !!m.buffs };
+        }),
+      };
+    }
+    function __moveMeta(req) {
+      var b = new Battle(); b.setCP(1500);
+      var a = __mk(b, req.a, 0, 0, false), z = __mk(b, req.b, 1, 0, false);
+      b.setNewPokemon(a, 0, false); b.setNewPokemon(z, 1, false);
+      b.start();
+      return JSON.stringify([__moveInfo(a), __moveInfo(z)]);
+    }
+    function __snapSide(p) {
+      return {
+        hp: p.hp, energy: p.energy, shields: p.shields, buffs: [p.statBuffs[0], p.statBuffs[1]],
+        fastDamage: p.fastMove.damage,
+        chargedDamage: p.chargedMoves.filter(function (m) { return m; }).map(function (m) { return m.damage; }),
+      };
+    }
+    // Wrap wouldShield once; it only records while a traced useMove has a pending charged move.
+    var __pending = null;
+    var __origWouldShield = ActionLogic.wouldShield;
+    ActionLogic.wouldShield = function (battle, attacker, defender, move) {
+      var capture = __pending && !__pending.sides && __pending.move === move;
+      var sides = capture ? battle.getPokemon().map(__snapSide) : null;
+      var res = __origWouldShield.call(ActionLogic, battle, attacker, defender, move);
+      if (capture) { __pending.sides = sides; __pending.wouldShield = res.value; }
+      return res;
+    };
+    function __shieldTrace(req) {
+      var b = new Battle(); b.setCP(1500);
+      var a = __mk(b, req.a, 0, req.shields[0], false), z = __mk(b, req.b, 1, req.shields[1], false);
+      if (req.baitShields) { a.baitShields = req.baitShields[0]; z.baitShields = req.baitShields[1]; }
+      b.setNewPokemon(a, 0, false); b.setNewPokemon(z, 1, false);
+      var decisions = [];
+      var origUseMove = b.useMove;
+      b.useMove = function (attacker, defender, move) {
+        var before = defender.shields;
+        __pending = move.category === 'charged' ? { move: move, sides: null, wouldShield: null } : null;
+        var r = origUseMove.apply(this, arguments);
+        if (__pending && __pending.sides) {
+          decisions.push({
+            turn: b.getTurns(), attacker: attacker.index, moveIndex: attacker.chargedMoves.indexOf(move),
+            sides: __pending.sides, wouldShield: __pending.wouldShield, shielded: defender.shields < before,
+          });
+        }
+        __pending = null;
+        return r;
+      };
+      b.simulate();
+      return JSON.stringify(decisions);
+    }
+    // Battle.start, override the given fields, then run PvPoke's own Battle.useMove for one charged move.
+    function __shieldAt(req) {
+      var b = new Battle(); b.setCP(1500);
+      var mons = [__mk(b, req.a, 0, req.shields[0], false), __mk(b, req.b, 1, req.shields[1], false)];
+      if (req.baitShields) { mons[0].baitShields = req.baitShields[0]; mons[1].baitShields = req.baitShields[1]; }
+      b.setNewPokemon(mons[0], 0, false); b.setNewPokemon(mons[1], 1, false);
+      b.start();
+      for (var i = 0; i < 2; i++) {
+        mons[i].energy = req.energy[i];
+        if (req.hp) mons[i].hp = req.hp[i];
+        if (req.buffs) mons[i].statBuffs = [req.buffs[i][0], req.buffs[i][1]];
+      }
+      var attacker = mons[req.attacker], defender = mons[1 - req.attacker];
+      var move = attacker.chargedMoves[req.moveIndex];
+      var before = defender.shields;
+      __pending = { move: move, sides: null, wouldShield: null };
+      b.useMove(attacker, defender, move);
+      var out = { damage: move.damage, sides: __pending.sides, wouldShield: __pending.wouldShield, shielded: defender.shields < before };
+      __pending = null;
+      return JSON.stringify(out);
+    }
   `, ctx);
 
+  const run = (fn, req) => {
+    ctx.__req = req;
+    return JSON.parse(vm.runInContext(`${fn}(__req)`, ctx));
+  };
   return {
-    simulate(req) {
-      ctx.__req = req;
-      return JSON.parse(vm.runInContext('__simulate(__req)', ctx));
-    },
+    simulate: (req) => run('__simulate', req),
+    moveMeta: (req) => run('__moveMeta', req),
+    shieldTrace: (req) => run('__shieldTrace', req),
+    shieldAt: (req) => run('__shieldAt', req),
   };
 }
 
