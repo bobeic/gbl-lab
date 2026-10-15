@@ -69,3 +69,21 @@ mkdirSync('tests/fixtures', { recursive: true });
 const engine = engineCases();
 writeFileSync('tests/fixtures/engine-oracle.json', JSON.stringify({ upstream, cases: engine }));
 console.log(`engine-oracle.json: ${engine.length} cases`);
+
+/** Default-policy round robin over the top-100 meta at 0, 1 and 2 shields each. */
+function defaultCases(): OracleCase[] {
+  const meta = metaSpecies(gd, 100);
+  const cases: OracleCase[] = [];
+  for (const s of [0, 1, 2] as const) {
+    for (let i = 0; i < meta.length; i++) {
+      for (let j = i; j < meta.length; j++) {
+        cases.push(record({ a: meta[i]!, b: meta[j]!, shields: [s, s], mode: 'default' }));
+      }
+    }
+  }
+  return cases;
+}
+
+const def = defaultCases();
+writeFileSync('tests/fixtures/oracle-gl.json', JSON.stringify({ upstream, cases: def }));
+console.log(`oracle-gl.json: ${def.length} cases`);
