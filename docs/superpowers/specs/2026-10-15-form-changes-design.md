@@ -123,6 +123,7 @@ Fast moves, energy, the action queue, CMP, cooldowns, battle end.
 - `orderChargedMoves` (fastest, best, DPE) runs from `moveOrderBasis` instead of a rebuilt battle-start state, so it reflects the most recent `resetMoves` (battle start or form change) as PvPoke does.
 - Port `ActionLogic.js:236-252`: if the opponent's active rule has effect `protect` and the opponent has 0 shields, and `poke.energy >= fastestChargedMove.energy` and that move is not self-debuffing, throw it.
 - Shield logic unchanged. The Aegislash/Cramorant branches stay skipped.
+- Decision logic otherwise follows PvPoke exactly, including its stale damage estimates after stat changes (e.g. the opponent's cached damage after Mimikyu busts). Decision-quality differences from real play are recorded in `docs/known-game-differences.md` (D1–D7) for a later sub-project, not fixed here.
 
 ## 6. Validation
 
@@ -140,7 +141,8 @@ Fast moves, energy, the action queue, CMP, cooldowns, battle end.
 
 ## 7. Documentation
 - ADR 0003 (§3.2).
-- README: remove Mimikyu and Morpeko from the unsupported list; note the Morpeko correction vs pvpoke.com.
+- `docs/known-game-differences.md` (added with this spec): the running list of every place we think we differ from the real game, fixed or open. Keep it current: mark M1 fixed when this lands, and add any new differences found during the port.
+- README: remove Mimikyu and Morpeko from the unsupported list; note the Morpeko correction vs pvpoke.com; link `docs/known-game-differences.md`.
 - Engine spec: update the out-of-scope note in §7/§10 to point here.
 
 ## 8. Error handling
