@@ -86,6 +86,18 @@ describe('charged moves', () => {
     expect(order).toEqual([0, 1]);
   });
 
+  it('resolves the higher raw attack first when it is on side 1 (CMP)', () => {
+    const r = turn(battle(azu, med(), [0, 0], [100, 100]), () => ({ type: 'charged', index: 0 }));
+    const order = r.events.filter((e) => e.kind === 'charged').map((e) => e.side);
+    expect(order).toEqual([1, 0]);
+  });
+
+  it('lands a fast move queued before a charged move on the following turn (floating Bubble)', () => {
+    const s = turn(battle(med(), azu, [0, 0], [40, 0]), (_st, side) => (side === 0 ? { type: 'charged', index: 0 } : { type: 'fast' })).state;
+    const r = resolveTurn(beginTurn(s), [null, null], never);
+    expect(r.events.filter((e) => e.kind === 'fast')).toMatchObject([{ kind: 'fast', side: 1, turn: 2 }]);
+  });
+
   it('with equal attack both charged moves resolve even if the first KOs', () => {
     const lowHp = battle(med(), med(), [0, 0], [100, 100]);
     const s = { ...lowHp, sides: [{ ...lowHp.sides[0], hp: 1 }, { ...lowHp.sides[1], hp: 1 }] as const };
