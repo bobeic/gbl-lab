@@ -503,7 +503,196 @@ export function decide(state: BattleState, me: Side, trace?: string[]): Decision
     return done(FAST);
   }
 
-  return done(FAST);
+  // PvPoke ActionLogic.js:804-831: evaluate throwing strategy after finding optimal plan. Every DP state has chance 1
+  // (the chance branches are disabled at line 560), so the DP stops at its first KO state and stateList holds at most
+  // one state. The turnsToKO comparison at 817, which needs two or more, is therefore unreachable and not ported;
+  // poke.turnsToKO (808) is only read there. PvPoke's needsBoost (814) is never set, so its guard at 893 always passes.
+  if (stateList.length === 0) {
+    return done(FAST);
+  }
+  if (stateList.length > 1) throw new PolicyStateError(`DP produced ${stateList.length} knockout plans; PvPoke stops at one`);
+  // A copy: PvPoke mutates finalState.moves, an array other DP states may share, after the DP has finished.
+  const finalMoves: ChargedMove[] = [...stateList[0]!.moves];
+
+  // PvPoke ActionLogic.js:834-844: return if plan is the farm down
+  if (finalMoves.length === 0) {
+    const boostMove = getBoostMove(poke);
+    if (!boostMove) {
+      log(() => ' wants to farm down');
+      return done(FAST);
+    }
+    finalMoves.push(boostMove);
+    log(() => ' will force throw a boost move');
+  }
+
+  // PvPoke ActionLogic.js:846-857: find if there are any debuffing moves (PvPoke's mostExpensiveMove is never read)
+  const debuffingMove = finalMoves.some((move) => move.selfDebuffing);
+  const active = poke.activeChargedMoves;
+  const baitShields = poke.c.settings.baitShields;
+  const first = (): ChargedMove => finalMoves[0]!;
+
+  // PvPoke ActionLogic.js:859-876: if bait shields, build up to most expensive charge move in planned move list
+  if (baitShields && opponent.s.shields > 0 && active.length > 1) {
+    for (let i = 1; i < active.length; i++) {
+      if (poke.s.energy < active[i]!.energy && poke.dpeOf(active[i]!) > poke.dpeOf(first())) {
+        let bait = true;
+
+        // Don't go for baits if you have an effective self buffing move
+        if (poke.dpeOf(active[i]!) / poke.dpeOf(active[0]!) <= 1.5 && active[0]!.selfBuffing) {
+          bait = false;
+        }
+
+        if (bait) {
+          log(() => ` doesn't use ${first().name} because it wants to bait`);
+          return done(FAST);
+        }
+      }
+    }
+  }
+
+  // PvPoke ActionLogic.js:878-890: don't bait if the opponent won't shield
+  if (baitShields && opponent.s.shields > 0 && active.length > 1) {
+    for (let i = 1; i < active.length; i++) {
+      const dpeRatio = (table.of(poke, active[i]!) / active[i]!.energy) / (table.of(poke, first()) / first().energy);
+
+      if (poke.s.energy >= active[i]!.energy && dpeRatio > 1.5) {
+        if (!shieldsAgainst(poke, opponent, active[i]!)) {
+          finalMoves[0] = active[i]!;
+        }
+      }
+    }
+  }
+
+  // PvPoke ActionLogic.js:892-902: if not baiting shields or shields are down and no moves debuff, throw most damaging move first
+  if (!baitShields || (opponent.s.shields === 0 && !debuffingMove)) {
+    finalMoves.sort((a, b) => damage(poke, opponent, b, state) - damage(poke, opponent, a, state));
+  }
+
+  // PvPoke ActionLogic.js:904-907: if shields are up, prefer low energy moves that are more efficient
+  if (opponent.s.shields > 0 && active.length > 1 && active[0]!.energy <= first().energy
+    && poke.dpeOf(active[0]!) > poke.dpeOf(first()) && !active[0]!.selfDebuffing) {
+    finalMoves[0] = active[0]!;
+  }
+
+  // PvPoke ActionLogic.js:909-912: if shields are down, prefer non-debuffing moves if both sides have significant HP remaining
+  if (opponent.s.shields === 0 && active.length > 1 && first().selfDebuffing && first().energy > 50
+    && poke.s.hp / poke.c.stats.hp > 0.5 && table.of(poke, first()) / opponent.s.hp < 0.8) {
+    finalMoves[0] = active[0]!;
+  }
+
+  // PvPoke ActionLogic.js:914-917: bandaid to force more efficient move of the same energy
+  if (active.length > 1 && active[0]!.energy === first().energy && poke.dpeOf(active[0]!) > poke.dpeOf(first())
+    && !active[0]!.selfDebuffing) {
+    finalMoves[0] = active[0]!;
+  }
+
+  // PvPoke ActionLogic.js:919-922: bandaid to force more efficient move of the similar energy if chosen move is self debuffing
+  if (active.length > 1 && active[0]!.energy - 10 <= first().energy && poke.dpeOf(active[0]!) > poke.dpeOf(first())
+    && first().selfDebuffing && !active[0]!.selfDebuffing) {
+    finalMoves[0] = active[0]!;
+  }
+
+  // PvPoke ActionLogic.js:924-927: bandaid to force more efficient move of the similar energy if one move is self buffing
+  if (active.length > 1 && active[0]!.energy - first().energy <= 5 && poke.dpeOf(active[0]!) > poke.dpeOf(first())
+    && active[0]!.selfBuffing) {
+    finalMoves[0] = active[0]!;
+  }
+
+  // PvPoke ActionLogic.js:929-938: don't bait with self debuffing moves
+  if (baitShields && opponent.s.shields > 0 && active.length > 1) {
+    for (let i = 1; i < active.length; i++) {
+      if (poke.s.energy >= active[i]!.energy && poke.dpeOf(active[i]!) > poke.dpeOf(first())) {
+        if (first().selfDebuffing && !active[i]!.selfDebuffing) {
+          finalMoves[0] = active[i]!;
+        }
+      }
+    }
+  }
+
+  // PvPoke ActionLogic.js:940-947: when shields are down, don't use self debuffing moves that are significantly less efficient
+  if (opponent.s.shields === 0 && active.length > 1 && first().selfDebuffing) {
+    for (let i = 1; i < active.length; i++) {
+      if (poke.dpeOf(active[i]!) > poke.dpeOf(first()) && !active[i]!.selfDebuffing) {
+        finalMoves[0] = active[i]!;
+      }
+    }
+  }
+
+  // PvPoke ActionLogic.js:949-965: while shields are up, prefer close non debuffing moves where debuffing move won't KO
+  if (opponent.s.shields > 0 && active.length > 1) {
+    for (let i = 1; i < active.length; i++) {
+      if (active[0]!.selfDebuffing && !active[i]!.selfDebuffing) {
+        // Is the Pokemon baiting or will the self debuffing move not come close to a KO?
+        if (baitShields || opponent.s.hp - table.of(poke, active[0]!) > 10) {
+          // Is the second move close in energy and dpe?
+          if (active[i]!.energy - active[0]!.energy <= 10 && poke.dpeOf(active[i]!) / poke.dpeOf(active[0]!) > 0.7) {
+            finalMoves[0] = active[i]!;
+          }
+        }
+      }
+    }
+  }
+
+  // PvPoke ActionLogic.js:967-973: defer self debuffing moves until after survivable Charged Moves
+  const opponentBest = opponent.bestChargedMove;
+  if (first().selfDebuffing && poke.s.shields === 0 && poke.s.energy < 100 && opponentBest) {
+    if (opponent.s.energy >= opponentBest.energy && !shieldsAgainst(opponent, poke, opponentBest) && !active[0]!.selfBuffing) {
+      log(() => ' is deferring its self debuffing move until after the opponent fires its move');
+      return done(FAST);
+    }
+  }
+
+  // PvPoke ActionLogic.js:975-992: if move is self debuffing and doesn't KO, try to stack as much as you can
+  // (the Cramorant gulping/gorging opponent condition is skipped: form changes unsupported)
+  if (first().selfDebuffing) {
+    const targetEnergy = Math.floor(100 / first().energy) * first().energy;
+
+    if (poke.s.energy < targetEnergy) {
+      const chargedDamage = damage(poke, opponent, first(), state);
+      if ((opponent.s.hp > chargedDamage || opponent.s.shields !== 0)
+        && (poke.s.hp > table.of(opponent, opponent.fastMove) * 2 || opponent.fastMove.cooldownMs - poke.fastMove.cooldownMs > 500)) {
+        log(() => ` doesn't use ${first().name} because it wants to minimize time debuffed and it can stack the move ${Math.floor(100 / first().energy)} times`);
+        return done(FAST);
+      }
+    } else if (baitShields && opponent.s.shields > 0 && active[0]!.energy - first().energy <= 10 && !active[0]!.selfDebuffing) {
+      // Use the lower energy move if it's a boosting move or if the opponent would shield the bigger move
+      if (active[0]!.selfBuffing || shieldsAgainst(poke, opponent, first())) {
+        finalMoves[0] = active[0]!;
+      }
+    }
+  }
+
+  // PvPoke ActionLogic.js:994-1011: use the final move, or a Fast Move if not enough energy
+  if (poke.s.energy >= first().energy) {
+    if (finalMoves.length > 1) {
+      log(() => ` uses ${first().name} because it thinks that using ${finalMoves.length - 1} moves afterwards is the best plan.`);
+      for (let i = 1; i < finalMoves.length; i++) {
+        const [next, prev] = [finalMoves[i]!, finalMoves[i - 1]!];
+        log(() => ` wants to use ${next.name} after it uses ${prev.name}`);
+      }
+    } else {
+      log(() => ` uses ${first().name} at turn ${state.turn} because it KO's or it wants to farm down afterwards`);
+    }
+  } else {
+    log(() => ` uses a fast move because it has no energy for ${first().name}`);
+    return done(FAST);
+  }
+
+  // PvPoke ActionLogic.js:1013-1022 skipped: Aegislash shield-form energy building (form changes unsupported).
+
+  // PvPoke ActionLogic.js:1024-1031
+  return done({ type: 'charged', index: poke.indexOf(first()) });
+}
+
+/** PvPoke Pokemon.getBoostMove (Pokemon.js:1876-1890): the last slot-order move with a likely, non-debuffing buff. */
+function getBoostMove(poke: PokeView): ChargedMove | null {
+  let boostMove: ChargedMove | null = null;
+  for (const move of poke.chargedMoves) {
+    if (move.buffs && move.buffs.chance >= 0.5 && !move.selfDebuffing) {
+      boostMove = move;
+    }
+  }
+  return boostMove;
 }
 
 /**
