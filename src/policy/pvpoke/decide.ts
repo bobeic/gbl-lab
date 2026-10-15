@@ -274,5 +274,118 @@ export function decide(state: BattleState, me: Side, trace?: string[]): Decision
 
   // PvPoke ActionLogic.js:236-252 skipped: Mimikyu-style "protect" form change (form changes unsupported).
 
+  // PvPoke ActionLogic.js:254-363: optimize move timing to reduce free turns
+  if (poke.c.settings.optimizeMoveTiming) {
+    let targetCooldown = 500; // Look to throw moves when opponent is at this cooldown or lower
+    const pokeCooldown = poke.fastMove.cooldownMs;
+    const oppCooldown = opponent.fastMove.cooldownMs;
+
+    if (pokeCooldown >= 2000) {
+      targetCooldown = 1000;
+    }
+
+    if (pokeCooldown >= 1500 && oppCooldown === 2500) {
+      targetCooldown = 1000;
+    }
+
+    if (pokeCooldown === 1000 && oppCooldown === 2000) {
+      targetCooldown = 1000;
+    }
+
+    // Don't optimize timing for Pokemon with the same duration moves
+    if (pokeCooldown === oppCooldown) {
+      targetCooldown = 0;
+    }
+
+    // Don't optimize timing for Pokemon with longer, even duration moves (ie 4 vs 2, 3 vs 1)
+    if (pokeCooldown % oppCooldown === 0 && pokeCooldown > oppCooldown) {
+      targetCooldown = 0;
+    }
+
+    // Perform additional checks to execute optimal timing
+    if ((opponentCooldown === 0 || opponentCooldown > targetCooldown) && targetCooldown > 0) {
+      let optimizeTiming = true;
+
+      // Don't optimize if we're about to faint from a fast move
+      if (poke.s.hp <= oppFastMoveDamage) {
+        optimizeTiming = false;
+      }
+
+      // Don't optimize if we'll go over 100 energy (state.queue mirrors battle.getQueuedActions())
+      let queuedFastMoves = 0;
+      for (const queued of state.queue) {
+        if (queued.actor === me && queued.type === 'fast') {
+          queuedFastMoves++;
+        }
+      }
+
+      queuedFastMoves++; // Add 1 for the Fast Move we are thinking about doing
+
+      if (poke.s.energy + poke.fastMove.energyGain * queuedFastMoves > 100) {
+        optimizeTiming = false;
+      }
+
+      // Don't optimize if we have fewer turns to live than we can throw Charged Moves
+      let turnsPlanned = poke.fastMove.turns + Math.floor(poke.s.energy / poke.activeChargedMoves[0]!.energy);
+
+      if (poke.c.stats.atk < opponent.c.stats.atk) {
+        turnsPlanned++;
+      }
+
+      if (turnsPlanned > turnsToLive) {
+        optimizeTiming = false;
+      }
+
+      const ttl = turnsToLive;
+      log(() => ` has ${ttl} turns to live`);
+
+      // Don't optimize if we can KO with a Charged Move
+      if (opponent.s.shields === 0) {
+        for (const move of poke.activeChargedMoves) {
+          table.write(poke, move, damage(poke, opponent, move, state));
+
+          if (poke.s.energy >= move.energy && table.of(poke, move) >= opponent.s.hp) {
+            optimizeTiming = false;
+            break;
+          }
+        }
+      }
+
+      // Don't optimize if our opponent can KO with a Charged Move
+      for (const move of opponent.activeChargedMoves) {
+        const fastMovesFromCharged = Math.ceil((move.energy - opponent.s.energy) / opponent.fastMove.energyGain);
+        // How many Fast Moves can the opponent get in if we do an extra move?
+        const fastMovesInFastMove = Math.floor(pokeCooldown / oppCooldown);
+        const turnsFromMove = fastMovesFromCharged * opponent.fastMove.turns + 1;
+
+        table.write(opponent, move, damage(opponent, poke, move, state));
+
+        let chargedDamage = table.of(opponent, move) + oppFastMoveDamage * fastMovesInFastMove;
+
+        if (poke.s.shields > 0) {
+          chargedDamage = 1 + oppFastMoveDamage * fastMovesInFastMove;
+        }
+
+        if (turnsFromMove <= poke.fastMove.turns && chargedDamage >= poke.s.hp) {
+          optimizeTiming = false;
+          break;
+        }
+      }
+
+      // Don't optimize if the opponent will KO with Fast Moves it can fit into our Fast Move
+      const fastMovesInFastMove = Math.floor((pokeCooldown + 500) / oppCooldown);
+      if (poke.s.hp <= oppFastMoveDamage * fastMovesInFastMove) {
+        optimizeTiming = false;
+      }
+
+      if (optimizeTiming) {
+        log(() => ' is optimizing move timing');
+        return done(FAST);
+      }
+    }
+  }
+
+  // PvPoke ActionLogic.js:365-386 skipped: Cramorant Gulp Missile form change (form changes unsupported).
+
   return done(FAST);
 }
