@@ -42,4 +42,12 @@ describe('sim CLI', () => {
   it('rejects --trace with a policy that has no trace', () => {
     expect(() => execFileSync('npx', ['tsx', 'scripts/sim.ts', 'medicham', 'azumarill', '--policy', 'fast', '--trace'], { encoding: 'utf8', stdio: 'pipe' })).toThrow(/--trace is only supported with --policy pvpoke/);
   });
+
+  it.each([['--moves-a'], ['--moves-b']])('rejects a bare %s with no value', (flag) => {
+    expect(() => execFileSync('npx', ['tsx', 'scripts/sim.ts', 'medicham', 'azumarill', flag], { encoding: 'utf8', stdio: 'pipe' })).toThrow(new RegExp(`${flag} needs a value`));
+  });
+
+  it('rejects --moves-a followed by another flag', () => {
+    expect(() => execFileSync('npx', ['tsx', 'scripts/sim.ts', 'medicham', 'azumarill', '--moves-a', '--shields', '0', '0'], { encoding: 'utf8', stdio: 'pipe' })).toThrow(/--moves-a needs a value/);
+  });
 });

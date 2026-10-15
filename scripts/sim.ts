@@ -57,7 +57,12 @@ function main(): void {
 
   const make = (id: string, flag: string): Combatant => {
     if (!gd.species.has(id)) throw new Error(`Unknown species ${id}`);
-    const override = arg(flag, 1)?.[0]?.split(',');
+    const values = arg(flag, 1);
+    const value = values?.[0];
+    if (values !== undefined && (value === undefined || value.startsWith('--'))) {
+      throw new Error(`${flag} needs a value: FAST,CHARGED1[,CHARGED2]`);
+    }
+    const override = value?.split(',');
     const moveset = override ?? rankings.find((r) => r.speciesId === id)?.moveset;
     if (!moveset) throw new Error(`No ranking moveset for ${id}; pass ${flag} FAST,CHARGED1[,CHARGED2]`);
     const [fastMoveId, ...chargedMoveIds] = moveset;

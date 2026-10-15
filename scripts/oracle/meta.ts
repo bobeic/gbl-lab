@@ -17,6 +17,7 @@ export function metaSpecies(gd: GameData, count: number): OracleMon[] {
     } catch (err) {
       // Unsupported (form change, mega, etc.) - excluded from the oracle set by design (spec §10).
       if (!(err instanceof UnsupportedPokemonError || err instanceof GameDataError)) throw err;
+      console.error(`excluded ${r.speciesId}: ${err.name}: ${err.message}`);
     }
   }
   return out;
