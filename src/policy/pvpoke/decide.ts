@@ -20,6 +20,14 @@ export interface Decision {
 
 const FAST: Action = { type: 'fast' };
 
+/** One node of PvPoke's turns-to-live search (ActionLogic.js:43): my HP, opponent energy, turn, my shields. */
+interface LiveState {
+  readonly hp: number;
+  readonly opEnergy: number;
+  readonly turn: number;
+  readonly shields: number;
+}
+
 /** Both sides' PvPoke `move.damage` values for one decision, mutable as PvPoke's move objects are. */
 class DamageTable {
   private readonly charged: [number[], number[]];
@@ -100,6 +108,150 @@ export function decide(state: BattleState, me: Side, trace?: string[]): Decision
     } else {
       chargedMoveReady.push(Math.ceil((move.energy - poke.s.energy) / poke.fastMove.energyGain) * poke.fastMove.turns);
     }
+  }
+
+  // PvPoke ActionLogic.js:38-63: check if opponent is in the middle of a fast move and adjust accordingly
+  let turnsToLive = Infinity;
+  const queue: LiveState[] = [];
+  const opponentCooldown = opponent.s.cooldownMs;
+
+  if (opponentCooldown !== 0) {
+    queue.unshift({
+      hp: poke.s.hp - oppFastDamage,
+      opEnergy: opponent.s.energy + opponent.fastMove.energyGain,
+      turn: opponentCooldown / 500,
+      shields: poke.s.shields,
+    });
+  } else {
+    queue.unshift({ hp: poke.s.hp, opEnergy: opponent.s.energy, turn: 0, shields: poke.s.shields });
+  }
+
+  // PvPoke ActionLogic.js:65-139: check if opponent can KO in your fast move cooldown
+  const opponentFastest = required(opponent.fastestChargedMove, opponent, 'fastest charged move');
+  for (let currState = queue.shift(); currState !== undefined; currState = queue.shift()) {
+    // If turn > when you can act before your opponent, move to the next item in the queue
+    if (currState.hp > oppFastDamage) {
+      if (winsCMP) {
+        if (currState.turn > poke.fastMove.turns) {
+          continue;
+        }
+      } else if (currState.turn > poke.fastMove.turns + 1) {
+        continue;
+      }
+    }
+
+    // Shield bait if shields are up, otherwise try to KO
+    if (currState.shields !== 0) {
+      if (currState.opEnergy >= opponentFastest.energy) {
+        queue.unshift({
+          hp: currState.hp - 1,
+          opEnergy: currState.opEnergy - opponentFastest.energy,
+          turn: currState.turn + 1,
+          shields: currState.shields - 1,
+        });
+      }
+    } else {
+      // Check if any charge move KO's, add results to queue
+      for (const move of opponent.activeChargedMoves) {
+        if (currState.opEnergy >= move.energy) {
+          const chargedDamage = damage(opponent, poke, move, state);
+
+          if (chargedDamage >= currState.hp) {
+            turnsToLive = Math.min(currState.turn, turnsToLive);
+
+            if (poke.c.stats.atk > opponent.c.stats.atk && opponent.fastMove.cooldownMs % poke.fastMove.cooldownMs === 0) {
+              turnsToLive++;
+            }
+
+            const ttl = turnsToLive;
+            const opEnergy = currState.opEnergy;
+            log(() => ` opponent has energy to use ${move.name} and it would do ${chargedDamage} damage. I have ${ttl} turn(s) to live, opponent has ${opEnergy}`);
+            break;
+          }
+          queue.unshift({
+            hp: currState.hp - chargedDamage,
+            opEnergy: currState.opEnergy - move.energy,
+            turn: currState.turn + 1,
+            shields: currState.shields,
+          });
+        }
+      }
+    }
+
+    // Check if a fast move faints, add results to queue
+    if (currState.hp - oppFastDamage <= 0) {
+      turnsToLive = Math.min(currState.turn + opponent.fastMove.turns, turnsToLive);
+      break;
+    } else {
+      queue.unshift({
+        hp: currState.hp - oppFastDamage,
+        opEnergy: currState.opEnergy + opponent.fastMove.energyGain,
+        turn: currState.turn + opponent.fastMove.turns,
+        shields: currState.shields,
+      });
+    }
+  }
+
+  // PvPoke ActionLogic.js:141-208: if you can't throw a fast move and live, throw whatever move you can with the most damage
+  // (PvPoke tests `turnsToLive != -1`, which always holds: it starts at Infinity and only takes turn counts.)
+  const oppFastMoveDamage = table.of(opponent, opponent.fastMove);
+  const pokeFastMoveDamage = table.of(poke, poke.fastMove);
+  if (poke.s.hp <= oppFastMoveDamage * 2 && opponent.fastMove.cooldownMs === 500) {
+    turnsToLive--;
+  }
+
+  // Anticipate a Fast Move landing that has already initiated
+  if (poke.s.hp <= oppFastMoveDamage && opponentCooldown > 0 && opponent.fastMove.cooldownMs > 500) {
+    turnsToLive = opponentCooldown / 500;
+
+    if (opponent.s.hp > pokeFastMoveDamage) {
+      turnsToLive--;
+    }
+  }
+
+  // Anticipate a Fast Move landing if you use your Fast Move
+  if (poke.s.hp <= oppFastMoveDamage && opponentCooldown === 0 && opponent.fastMove.cooldownMs <= poke.fastMove.cooldownMs + 500) {
+    if (opponent.s.hp > pokeFastMoveDamage) {
+      turnsToLive--;
+    }
+  }
+
+  if (turnsToLive * 500 < poke.fastMove.cooldownMs
+    || (turnsToLive * 500 === poke.fastMove.cooldownMs && !winsCMP)
+    || (turnsToLive * 500 === poke.fastMove.cooldownMs && poke.s.hp <= oppFastMoveDamage)) {
+    let maxDamageMoveIndex = 0;
+    let prevMoveDamage = -1;
+
+    // PvPoke starts at n = activeChargedMoves.length, where chargedMoveReady[n] is undefined and the entry is skipped.
+    for (let n = poke.activeChargedMoves.length - 1; n >= 0; n--) {
+      // Find highest damage available move
+      if (chargedMoveReady[n] === 0) {
+        const move = poke.activeChargedMoves[n]!;
+        const chargedDamage = damage(poke, opponent, move, state);
+
+        // If this move deals more damage than the other move, use it
+        if (chargedDamage > prevMoveDamage) {
+          maxDamageMoveIndex = poke.indexOf(move);
+          prevMoveDamage = chargedDamage;
+        }
+
+        // If the Pokemon can fire two of this move and deal more damage, use it
+        if (poke.s.energy >= move.energy * 2 && poke.c.stats.atk > opponent.c.stats.atk && chargedDamage * 2 > prevMoveDamage) {
+          maxDamageMoveIndex = poke.indexOf(move);
+          prevMoveDamage = chargedDamage * 2;
+        }
+      }
+    }
+
+    // If no moves available, throw fast move
+    const ttl = turnsToLive;
+    if (prevMoveDamage === -1) {
+      log(() => ` uses a fast move because it has ${ttl} turn(s) before it is KO'd but has no energy.`);
+      return done(FAST);
+    }
+    // Throw highest damage move
+    log(() => ` uses ${poke.chargedMoves[maxDamageMoveIndex]!.name} because it has ${ttl} turn(s) before it is KO'd.`);
+    return done({ type: 'charged', index: maxDamageMoveIndex });
   }
 
   return done(FAST);
