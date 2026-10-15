@@ -4,11 +4,19 @@ import { compareOracle } from '../scripts/compare-oracle';
 
 describe('PvPoke oracle acceptance (spec §7.2)', () => {
   const summary = compareOracle();
-  const fixtureCases = (JSON.parse(readFileSync('tests/fixtures/oracle-gl.json', 'utf8')) as { cases: unknown[] }).cases.length;
+  const fixture = JSON.parse(readFileSync('tests/fixtures/oracle-gl.json', 'utf8')) as { upstream: string; cases: unknown[] };
 
   it('compares a non-trivial fixture (100-species round robin at 0/1/2 shields)', () => {
-    expect(fixtureCases).toBeGreaterThan(0);
-    expect(summary.total).toBe(fixtureCases);
+    expect(fixture.cases.length).toBeGreaterThanOrEqual(15000);
+    expect(summary.total).toBe(fixture.cases.length);
+  });
+
+  it('was generated from the vendored PvPoke commit', () => {
+    expect(fixture.upstream).toBe(readFileSync('data/UPSTREAM', 'utf8').trim());
+  });
+
+  it('matches PvPoke exactly in every matchup (achieved parity, locked in)', () => {
+    expect(summary.exactMatches).toBe(summary.total);
   });
 
   it('agrees on the winner in at least 98% of matchups', () => {

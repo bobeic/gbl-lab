@@ -56,11 +56,16 @@ describe('orderChargedMoves (PvPoke Pokemon.resetMoves)', () => {
 interface Mon { speciesId: string; moveset: string[] }
 interface ChargedInfo { id: string; damage: number; dpe: number; selfDebuffing: boolean; hasBuffs: boolean }
 interface Meta { active: string[]; best: string | null; fastest: string | null; charged: ChargedInfo[] }
-const fixture: { mons: Mon[]; cases: { a: number; b: number; result: [Meta, Meta] }[] } =
+const fixture: { upstream: string; mons: Mon[]; cases: { a: number; b: number; result: [Meta, Meta] }[] } =
   JSON.parse(readFileSync('tests/fixtures/move-meta-oracle.json', 'utf8'));
 const build = (m: Mon) => buildCombatant(gd, { speciesId: m.speciesId, fastMoveId: m.moveset[0]!, chargedMoveIds: m.moveset.slice(1) });
 
 describe('PvPoke move metadata matches the harness for every meta pair', () => {
+  it('was generated from the vendored PvPoke commit', () => {
+    expect(fixture.upstream).toBe(readFileSync('data/UPSTREAM', 'utf8').trim());
+    expect(fixture.cases.length).toBeGreaterThan(0);
+  });
+
   it('active order, best, fastest, flags and DPE', () => {
     const mismatches: string[] = [];
     for (const c of fixture.cases) {

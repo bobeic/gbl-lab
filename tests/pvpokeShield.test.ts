@@ -66,7 +66,7 @@ type EncodedSide = number[];
 /** [attacker, moveIndex, wouldShield, shielded, side0, side1] */
 type EncodedDecision = [Side, number, 0 | 1, 0 | 1, EncodedSide, EncodedSide];
 interface TraceCase { a: number; b: number; shields: [number, number]; baitShields?: [0 | 1 | 2, 0 | 1 | 2]; decisions: EncodedDecision[] }
-const fixture: { mons: Mon[]; cases: TraceCase[] } = JSON.parse(readFileSync('tests/fixtures/shield-oracle.json', 'utf8'));
+const fixture: { upstream: string; mons: Mon[]; cases: TraceCase[] } = JSON.parse(readFileSync('tests/fixtures/shield-oracle.json', 'utf8'));
 
 const build = (m: Mon, baitShields: PolicySettings['baitShields'] | undefined) => buildCombatant(gd, {
   speciesId: m.speciesId, fastMoveId: m.moveset[0]!, chargedMoveIds: m.moveset.slice(1),
@@ -78,6 +78,11 @@ const decode = (base: SideState, e: EncodedSide): SideState => ({
 });
 
 describe('pvpokeShield matches every shield decision PvPoke makes in default simulations', () => {
+  it('was generated from the vendored PvPoke commit', () => {
+    expect(fixture.upstream).toBe(readFileSync('data/UPSTREAM', 'utf8').trim());
+    expect(fixture.cases.length).toBeGreaterThan(0);
+  });
+
   it('wouldShield value and final shield decision', () => {
     const mismatches: string[] = [];
     let n = 0;
