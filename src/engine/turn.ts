@@ -28,11 +28,13 @@ export function canAct(state: BattleState, side: Side): boolean {
   return !state.over && !state.chargedLastTurn && me.cooldownMs === 0 && me.hp > 0 && opp.hp > 0;
 }
 
-function addStages(current: StatPair, delta: StatPair, max: number): StatPair {
+/** Add buff stages to a stat pair, clamping each to the max (PvPoke Pokemon.applyStatBuffs). */
+export function addStages(current: StatPair, delta: StatPair, max: number): StatPair {
   return [clampStage(current[0] + delta[0], max), clampStage(current[1] + delta[1], max)];
 }
 
-function requireStages(stages: StatPair | undefined, moveId: string): StatPair {
+/** Return a 'both'-target move's self or opponent stages, failing if the data omits them. */
+export function requireStages(stages: StatPair | undefined, moveId: string): StatPair {
   if (!stages) throw new GameDataError(`${moveId}: 'both' buff target is missing its self/opponent stages`);
   return stages;
 }

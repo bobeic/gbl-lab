@@ -25,3 +25,8 @@ export class TurnLimitError extends Error {
     super(message);
   }
 }
+
+/** Raised when a policy is asked about a move or state that does not belong to the battle it was given. */
+export class PolicyStateError extends Error {
+  override name = 'PolicyStateError';
+}
