@@ -1,5 +1,6 @@
-import type { ChargedMove, FastMove } from '../../data/types';
+import type { ChargedMove, FastMove, StatPair } from '../../data/types';
 import { moveDamage } from '../../engine/combatant';
+import { clampStage } from '../../engine/damage';
 import type { BattleState, Side } from '../../engine/state';
 import type { Action } from '../../engine/turn';
 import { PolicyStateError } from '../../errors';
@@ -27,6 +28,62 @@ interface LiveState {
   readonly opEnergy: number;
   readonly turn: number;
   readonly shields: number;
+}
+
+/** PvPoke's DP node (ActionLogic.js:1268-1278 BattleState). */
+interface DPState {
+  readonly energy: number;
+  readonly oppHealth: number;
+  readonly turn: number;
+  /** Null for farm-down states, which PvPoke builds from a nonexistent field (ActionLogic.js:515, 528). */
+  readonly oppShields: number | null;
+  readonly moves: readonly ChargedMove[];
+  /** Attack stages; clamped to ±4 in place when the state is taken off the queue (ActionLogic.js:461-463). */
+  buffs: number;
+  readonly chance: number;
+}
+
+/**
+ * Index where PvPoke splices a new DP state: past each queued state whose turn is below (or, when `inclusive`, at)
+ * `turn`. PvPoke's loops also test `DPQueue[i].hp` and `.shields` to drop dominated states, but BattleState has
+ * no such fields, so those tests are always false and every state is inserted.
+ */
+function insertionIndex(queue: readonly DPState[], turn: number, inclusive: boolean): number {
+  let i = 0;
+  while (inclusive ? queue[i]!.turn <= turn : queue[i]!.turn < turn) {
+    i++;
+    if (i === queue.length) {
+      break;
+    }
+  }
+  return i;
+}
+
+/** Insert a DP state as PvPoke does when the queue is not empty (the farm-down state inserted first guarantees it). */
+function insertState(queue: DPState[], next: DPState, inclusive: boolean): void {
+  // PvPoke's empty-queue branches (632, 680, 729, 775) would use a stale hoisted `newEnergy`; they are unreachable.
+  if (queue.length === 0) throw new PolicyStateError('DP queue unexpectedly empty when inserting a charged-move state');
+  queue.splice(insertionIndex(queue, next.turn, inclusive), 0, next);
+}
+
+/** PvPoke's tie-break score for equal DP states: self-debuffing moves count up, guaranteed self-boosts down (590-608). */
+function debuffScore(moves: readonly ChargedMove[]): number {
+  let score = 0;
+  for (const move of moves) {
+    if (move.selfDebuffing) {
+      score++;
+    }
+    if (move.buffs && move.buffs.chance === 1 && move.buffs.target === 'self' && move.buffs.stages[0] + move.buffs.stages[1] > 0) {
+      score--;
+    }
+  }
+  return score;
+}
+
+/** A self-debuffing move's `buffs` pair, which PvPoke dereferences unguarded. */
+function stagesOf(move: ChargedMove): StatPair {
+  if (!move.buffs) throw new PolicyStateError(`${move.id} is self-debuffing but has no buffs`);
+  return move.buffs.stages;
 }
 
 /** Both sides' PvPoke `move.damage` values for one decision, mutable as PvPoke's move objects are. */
@@ -439,5 +496,240 @@ export function decide(state: BattleState, me: Side, trace?: string[]): Decision
     return done({ type: 'charged', index: poke.indexOf(selectedMove) });
   }
 
+  // PvPoke ActionLogic.js:439-803: calculate the most efficient way to defeat opponent
+  const stateList = planKnockout(state, poke, opponent, hasNonDebuff);
+  if (stateList === null) {
+    log(() => ' considered too many states, likely an infinite loop');
+    return done(FAST);
+  }
+
   return done(FAST);
+}
+
+/**
+ * PvPoke's DP over (energy, opponent HP, turns, opponent shields, moves, attack buffs, chance), ActionLogic.js:439-803.
+ * Returns PvPoke's stateList, or null when it gives up after 500 states (ActionLogic.js:451-455).
+ */
+function planKnockout(state: BattleState, poke: PokeView, opponent: PokeView, hasNonDebuff: boolean): DPState[] | null {
+  const { energyGain, turns } = poke.fastMove;
+  // ELEMENTS OF DP QUEUE: ENERGY, OPPONENT HEALTH, TURNS, OPPONENT SHIELDS, USED MOVES, ATTACK BUFF, CHANCE
+  let stateCount = 0;
+
+  const DPQueue: DPState[] = [{
+    energy: poke.s.energy, oppHealth: opponent.s.hp, turn: 0, oppShields: opponent.s.shields, moves: [], buffs: 0, chance: 1,
+  }];
+  const stateList: DPState[] = [];
+
+  while (DPQueue.length !== 0) {
+    // A not very good way to prevent infinite loops
+    if (stateCount >= 500) {
+      return null;
+    }
+    stateCount++;
+
+    const currState = DPQueue.shift()!;
+    const DPchargedMoveReady: number[] = [];
+
+    // Set cap of 4 for buffs
+    currState.buffs = Math.min(4, currState.buffs);
+    currState.buffs = Math.max(-4, currState.buffs);
+
+    // Found fastest way to defeat enemy, fastest = optimal in this case since damage taken is strictly dependent on time
+    // Set finalState to currState and do more evaluation later
+    if (currState.oppHealth <= 0) {
+      stateList.push(currState);
+
+      if (currState.chance === 1) {
+        break;
+      } else {
+        continue;
+      }
+    }
+
+    const oppShields = currState.oppShields;
+    if (oppShields === null) throw new PolicyStateError('A farm-down DP state with opponent HP left was expanded');
+
+    // Evaluate cooldown to reach each charge move
+    for (const move of poke.activeChargedMoves) {
+      if (currState.energy >= move.energy) {
+        DPchargedMoveReady.push(0);
+      } else {
+        DPchargedMoveReady.push(Math.ceil((move.energy - currState.energy) / energyGain) * turns);
+      }
+    }
+
+    // Push states onto queue in order of TURN
+    for (let n = 0; n < poke.activeChargedMoves.length; n++) {
+      const move = poke.activeChargedMoves[n]!;
+
+      // Apply stat changes to pokemon attack (PvPoke applyStatBuffs, then resets; computed on a local stage here)
+      const attackStage = clampStage(poke.s.buffs[0] + currState.buffs, state.rules.maxBuffStages);
+      const moveDamage = damage(poke, opponent, move, state, attackStage);
+      const fastSimulatedDamage = damage(poke, opponent, poke.fastMove, state, attackStage);
+
+      // Skip self defense debuffing moves like Superpower if they aren't lethal
+      // MELMETAL V CRESSELIA IS A NIGHTMARE :D
+      if (hasNonDebuff && poke.c.species.name === 'Melmetal' && opponent.c.species.name === 'Cresselia') {
+        if (move.selfDebuffing && stagesOf(move)[1] < 1 && opponent.s.hp > moveDamage * (1 + 4 / (4 - stagesOf(move)[0]))) {
+          continue;
+        }
+      }
+
+      // Add result of farming down from this point. PvPoke reads the nonexistent `currState.opponentShields` (515, 528);
+      // PvPoke's `DPQueue[i].hp < 0` test (518) reads a field BattleState lacks, so it never blocks the insert.
+      const movesToFarmDown = Math.ceil(currState.oppHealth / fastSimulatedDamage);
+      const farmDown: DPState = {
+        energy: currState.energy + energyGain * movesToFarmDown, oppHealth: 0, turn: currState.turn + movesToFarmDown * turns,
+        oppShields: null, moves: currState.moves, buffs: currState.buffs, chance: currState.chance,
+      };
+
+      // Place state at correct spot in priority queue
+      if (DPQueue.length === 0) {
+        DPQueue.unshift(farmDown);
+      } else {
+        DPQueue.splice(insertionIndex(DPQueue, farmDown.turn, true), 0, farmDown);
+      }
+
+      // Find new attack after move
+      let attackMult = currState.buffs;
+
+      // If attack changes attack stat, apply effects. PvPoke also tracks a possible (chance) multiplier here,
+      // but disables the non-guaranteed buff evaluation (changeTTKChance = 0, line 560), so it is never used.
+      const buffs = move.buffs;
+      if (buffs && buffs.chance && buffs.target === 'self') {
+        if (buffs.chance === 1) {
+          attackMult += buffs.stages[0];
+        }
+      }
+
+      // If attack changes opponent defense, apply effects
+      if (buffs && buffs.chance && buffs.target === 'opponent') {
+        if (buffs.chance === 1) {
+          attackMult -= buffs.stages[1];
+        }
+      }
+
+      const moves = [...currState.moves, move];
+      const stacks = move.selfDebuffing && stagesOf(move)[0] < 0 && move.energy * 2 <= 100;
+
+      // If move is ready, use it and add results to queue
+      if (DPchargedMoveReady[n] === 0) {
+        // If shielded, apply 1 damage, otherwise apply move damage
+        let newOppHealth = currState.oppHealth - moveDamage;
+        if (oppShields > 0) {
+          newOppHealth = currState.oppHealth - 1;
+        }
+
+        let newShields = oppShields;
+        // Assume pokemon shields
+        if (newShields > 0) {
+          newShields--;
+        }
+
+        // Remove all elements that are strictly worse than this state while checking if there are any elements better
+        let i = 0;
+        let insertElement = true;
+        while (i < DPQueue.length && DPQueue[i]!.turn === currState.turn + 1) {
+          const queued = DPQueue[i]!;
+          if (queued.oppHealth === newOppHealth && queued.buffs === attackMult) {
+            if (queued.energy === currState.energy - move.energy) {
+              // Added this just for Perrserker and Giratina
+              // If energy is the same and opponent at same health choose path with less debuffs or more buff chances
+              if (debuffScore(queued.moves) > debuffScore(moves)) {
+                DPQueue.splice(i, 1);
+              } else {
+                insertElement = false;
+                i++;
+              }
+            } else {
+              insertElement = false;
+              i++;
+            }
+          } else {
+            i++;
+          }
+        }
+
+        if (insertElement) {
+          // Place state at correct spot in priority queue (PvPoke's dominance test at 639 reads the missing hp/shields)
+          insertState(DPQueue, {
+            energy: currState.energy - move.energy, oppHealth: newOppHealth, turn: currState.turn + 1, oppShields: newShields,
+            moves, buffs: attackMult, chance: currState.chance,
+          }, true);
+        }
+
+        // If move will debuff attack, calculate values when you stack two of them then throw
+        if (stacks) {
+          let newTurn = Math.ceil((move.energy * 2 - currState.energy) / energyGain) * turns;
+          const newEnergy = Math.floor(newTurn / turns) * energyGain + currState.energy - move.energy;
+
+          if (newTurn !== 0) {
+            // Calculate new health
+            newOppHealth = currState.oppHealth - fastSimulatedDamage * (newTurn / turns);
+
+            // Calculate shield scenarios
+            if (oppShields > 0) {
+              newOppHealth = newOppHealth - 1;
+            } else {
+              newOppHealth = newOppHealth - moveDamage;
+            }
+
+            newTurn += currState.turn + 1;
+
+            insertState(DPQueue, {
+              energy: newEnergy, oppHealth: newOppHealth, turn: newTurn, oppShields: newShields, moves, buffs: attackMult,
+              chance: currState.chance,
+            }, true);
+          }
+        }
+      } else {
+        const ready = DPchargedMoveReady[n]!;
+        let newEnergy = currState.energy - move.energy + energyGain * (ready / turns);
+        let newOppHealth = currState.oppHealth - moveDamage - fastSimulatedDamage * (ready / turns);
+
+        // If shields are up, only apply fast move damage
+        if (oppShields > 0) {
+          newOppHealth = currState.oppHealth - fastSimulatedDamage * (ready / turns) - 1;
+        }
+        let newTurn = currState.turn + ready + 1;
+        let newShields = oppShields;
+
+        // Assume pokemon shields
+        if (newShields > 0) {
+          newShields--;
+        }
+
+        // Place in priority queue, with TURN being the priority
+        insertState(DPQueue, {
+          energy: newEnergy, oppHealth: newOppHealth, turn: newTurn, oppShields: newShields, moves, buffs: attackMult,
+          chance: currState.chance,
+        }, false);
+
+        // If move will debuff attack, calculate values when you stack two of them then throw
+        if (stacks) {
+          newTurn = Math.ceil((move.energy * 2 - currState.energy) / energyGain) * turns;
+          newEnergy = Math.floor(newTurn / turns) * energyGain + currState.energy - move.energy;
+
+          // Calculate new health
+          newOppHealth = currState.oppHealth - fastSimulatedDamage * (newTurn / turns);
+
+          // Calculate shield scenarios
+          if (oppShields > 0) {
+            newOppHealth = newOppHealth - 1;
+          } else {
+            newOppHealth = newOppHealth - moveDamage;
+          }
+
+          newTurn += currState.turn + 1;
+
+          insertState(DPQueue, {
+            energy: newEnergy, oppHealth: newOppHealth, turn: newTurn, oppShields: newShields, moves, buffs: attackMult,
+            chance: currState.chance,
+          }, false);
+        }
+      }
+    }
+  }
+
+  return stateList;
 }
