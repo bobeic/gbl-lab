@@ -160,3 +160,4 @@ gbl-lab/
 - Shadow Pokémon are separate gamemaster entries (`*_shadow`, tag `shadow`).
 - PvPoke runs headless in a Node `vm` with a small jQuery stub (spike verified: Medicham vs Azumarill 1-1 → 324/675).
 - Out of scope for this sub-project: form-changing Pokémon (Aegislash, Cramorant, Mimikyu, Morpeko) and mega Pokémon. They are excluded from the oracle acceptance set and the engine rejects them with a typed error. They are added in a follow-up because Mimikyu and Morpeko are in the meta.
+- Ditto's TRANSFORM and Magearna's STRUGGLE sit in the species `fastMoves` list with `energyGain` 0, so PvPoke (GameMaster.js:831) classes them "charged". Species move lists are therefore validated by existence only in the loader; engine-level kind checks happen in `buildCombatant`.
