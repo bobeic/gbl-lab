@@ -254,5 +254,25 @@ export function decide(state: BattleState, me: Side, trace?: string[]): Decision
     return done({ type: 'charged', index: maxDamageMoveIndex });
   }
 
+  // PvPoke ActionLogic.js:210-234: throw a lethal Charged Move if it will faint the opponent
+  if (!poke.c.settings.farmEnergy && opponent.s.shields === 0) {
+    for (let n = 0; n < poke.activeChargedMoves.length; n++) {
+      const move = poke.activeChargedMoves[n]!;
+      const moveIndex = poke.indexOf(move);
+
+      if (poke.s.energy >= move.energy) {
+        const chargedDamage = damage(poke, opponent, move, state);
+
+        // Don't throw self debuffing moves at this point, or if the opponent will faint from Fast Move damage
+        if (opponent.s.hp <= chargedDamage && !move.selfDebuffing && (n === 0 || (n === 1 && !poke.c.settings.baitShields))
+          && opponent.s.hp > pokeFastMoveDamage) {
+          return done({ type: 'charged', index: moveIndex });
+        }
+      }
+    }
+  }
+
+  // PvPoke ActionLogic.js:236-252 skipped: Mimikyu-style "protect" form change (form changes unsupported).
+
   return done(FAST);
 }
