@@ -87,7 +87,9 @@ Every resolved action emits typed events (fast move used, damage, energy gained,
 ### 5.1 Interface
 ```ts
 interface Policy {
-  chooseAction(state: BattleState, me: Side): Action;          // fast | charged(moveId) | wait
+  // Called whenever the side's cooldown is 0 in a live battle (as PvPoke calls decideAction); on the turn after a
+  // charged move the action is discarded but lastDamageUpdates still apply (see §10).
+  chooseAction(state: BattleState, me: Side): { action: Action; lastDamageUpdates?: LastDamageUpdate[] };
   chooseShield(state: BattleState, me: Side, incomingMoveIndex: number, damage: number): boolean;
 }
 ```
@@ -169,3 +171,11 @@ gbl-lab/
 - The Obstruct clause after the best-move loop (Pokemon.js:869-872) is reachable: e.g. Obstagoon Cross Chop/Obstruct vs Azumarill, where Cross Chop overtakes Obstruct inside the loop and the clause restores Obstruct.
 - `ActionLogic.wouldShield` (ActionLogic.js:1154-1262) applies the move's `buffs` pair to the attacker when `buffs[0] > 0`, otherwise to the defender, whatever `buffTarget` says (Superpower's self `[-1,-1]` lowers the defender in the estimate; Obstruct's `[0,1]` raises the defender's defense). Its per-move "affordable" check `attacker.energy + move.energy >= move.energy` is always true. It writes `move.damage` (ActionLogic.js:1159); `wouldShield` returns that value as `damage` so Task 11 can mirror the write if the oracle needs it.
 - Decision oracle (Task 10): harness probes `moveMeta`, `shieldTrace` (wraps `Battle.useMove` and `ActionLogic.wouldShield` during a default simulation) and `shieldAt` (runs PvPoke's own `Battle.useMove` from a hand-built state). `npm run gen-decision-oracle` writes `tests/fixtures/move-meta-oracle.json` (820 meta pairs, both sides) and `tests/fixtures/shield-oracle.json` (11,831 shield decisions over 780 pairs × 7 shield/bait setups); the port matches all of them.
+- decideAction (Task 11) writes `move.damage` on move objects: ActionLogic.js:320 (own charged moves) and 336 (opponent's), and through `wouldShield`'s 1159 at 411, 884, 988 (own) and 969 (opponent's best move). The value is the damage at current buffs, and it **persists**. Later decisions and Battle.useMove's shield logic read it, so it matters whenever buffs changed after a move's last use. PvPoke also runs decideAction for both sides in index order: side 1 sees side 0's writes from the same turn. It runs decideAction on the turn after a charged move too, then discards the action (Battle.js:330-337), and those writes still land. Protocol rule 3 is applied: `Policy.chooseAction` returns `{ action, lastDamageUpdates }`. `runMatchup` consults each side whose cooldown is 0 in order and applies the updates with `withLastDamage` before the next side decides. It uses the action only when `canAct` holds. Without this, 5 of 9,360 top-40 default-mode matchups diverge, for example Tinkaton vs Shadow Snorlax 2-2 (787 vs 719). With it, all 9,360 and all 48,060 top-90 matchups match exactly.
+- decideAction's DP (ActionLogic.js:439-803) quirks reproduced by the port:
+  - `BattleState` has no `hp` or `shields` fields, so every dominance test on `DPQueue[i].hp` and `.shields` (518, 639, 687, 736, 782) is false and every state is inserted.
+  - Farm-down states read the nonexistent `currState.opponentShields` (515, 528). They have 0 opponent HP, so they are never expanded.
+  - The empty-queue branches at 632, 680, 729 and 775 are unreachable, because the farm-down state is always inserted first; 632 would use a stale hoisted `newEnergy`.
+  - The attack-buff cap in the DP is a hard-coded ±4.
+  - `changeTTKChance` is forced to 0 (560), so every state has chance 1. The DP stops at its first knockout state, and `stateList` holds at most one entry. The `turnsToKO` comparison (817) is therefore unreachable, and `needsBoost` is never set.
+- decideAction reads `move.dpe` as start-of-battle damage / energy (`PokeView.dpeOf`) but reads `move.damage` from the live value (`SideState.lastDamage` plus the writes above). The dpe-ratio check at 881 uses `damage / energy`, not `dpe`. The Melmetal-vs-Cresselia special case (502-506) compares `speciesName`, so it never fires for shadow forms.
