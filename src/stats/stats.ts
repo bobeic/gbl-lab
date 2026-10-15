@@ -45,10 +45,10 @@ export function computeStats(base: Species['base'], ivs: Ivs, level: number, dex
   };
 }
 
-/** Return the highest half-level up to maxLevel whose CP is at or under the cap, or null if none. */
-export function bestLevelUnderCap(base: Species['base'], ivs: Ivs, cap: number, maxLevel: number): number | null {
+/** Return the highest half-level from minLevel up to maxLevel whose CP is at or under the cap, or null if none. */
+export function bestLevelUnderCap(base: Species['base'], ivs: Ivs, cap: number, maxLevel: number, minLevel = 1): number | null {
   assertIvs(ivs);
-  for (let level = maxLevel; level >= 1; level -= 0.5) {
+  for (let level = maxLevel; level >= minLevel; level -= 0.5) {
     if (computeCp(base, ivs, cpmForLevel(level)) <= cap) return level;
   }
   return null;

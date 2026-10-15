@@ -46,6 +46,20 @@ describe('loadGameData', () => {
     expect(() => loadGameData(raw)).toThrow(new GameDataError('medicham: unknown fast move NOPE'));
   });
 
+  it('reads levelFloor, defaulting to 1 like PvPoke baseLevelFloor', () => {
+    expect(loadGameData(minimal()).species.get('medicham')?.levelFloor).toBe(1);
+    const raw = minimal();
+    (raw.pokemon as Record<string, unknown>[])[0]!.levelFloor = 15;
+    expect(loadGameData(raw).species.get('medicham')?.levelFloor).toBe(15);
+    expect(loadDefaultGameData().species.get('heatran_shadow')?.levelFloor).toBe(8);
+  });
+
+  it.each([0, 15.25, 'fifteen'])('rejects levelFloor %j', (value) => {
+    const raw = minimal();
+    (raw.pokemon as Record<string, unknown>[])[0]!.levelFloor = value;
+    expect(() => loadGameData(raw)).toThrow(GameDataError);
+  });
+
   it('rejects a move with a non-numeric power', () => {
     const raw = minimal();
     (raw.moves as Record<string, unknown>[])[0]!.power = 'eight';

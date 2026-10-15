@@ -134,6 +134,11 @@ function parseSpecies(p: unknown, index: number, moves: ReadonlyMap<string, Move
     throw new GameDataError(`${id}: defaultIVs.cp1500 must be [level, atk, def, hp]`);
   }
 
+  const levelFloor = p.levelFloor === undefined ? 1 : num(p, 'levelFloor', id);
+  if (!Number.isInteger(levelFloor * 2) || levelFloor < 1 || levelFloor > 55) {
+    throw new GameDataError(`${id}: levelFloor must be a half-level between 1 and 55, got ${levelFloor}`);
+  }
+
   return {
     id,
     dex: num(p, 'dex', id),
@@ -146,6 +151,7 @@ function parseSpecies(p: unknown, index: number, moves: ReadonlyMap<string, Move
     tags: strArray(p, 'tags', id, false),
     nativeStatBuffs: p.nativeStatBuffs === undefined ? [0, 0] : pair(p.nativeStatBuffs, id),
     hasFormChange: p.formChange !== undefined,
+    levelFloor,
     defaultIvsGreat: { level: iv[0] as number, atk: iv[1] as number, def: iv[2] as number, hp: iv[3] as number },
   };
 }

@@ -9,7 +9,7 @@ const FILES = [
   'battle/actions/ActionLogic.js', 'battle/Battle.js',
 ];
 
-/** Load PvPoke from a checkout's src/ directory and return its simulate, moveMeta, shieldTrace and shieldAt probes. */
+/** Load PvPoke from a checkout's src/ directory and return its simulate, moveMeta, shieldTrace, shieldAt and ivCombinations probes. */
 function createPvpoke(srcDir) {
   const gamemaster = JSON.parse(fs.readFileSync(path.join(srcDir, 'data', 'gamemaster.json'), 'utf8'));
   const pending = [];
@@ -142,6 +142,21 @@ function createPvpoke(srcDir) {
       __pending = null;
       return JSON.stringify(out);
     }
+    // PvPoke's full IV ranking (Pokemon.generateIVCombinations sorted by "overall") for one species.
+    function __ivCombinations(req) {
+      var b = new Battle(); b.setCP(req.cap);
+      var p = new Pokemon(req.speciesId, 0, b);
+      p.initialize(req.cap);
+      if (req.chargedMoveIds) {
+        for (var i = 0; i < 2; i++) p.selectMove('charged', req.chargedMoveIds[i] || 'none', i);
+      }
+      return JSON.stringify({
+        chargedMoveIds: p.chargedMoves.filter(function (m) { return m; }).map(function (m) { return m.moveId; }),
+        combinations: p.generateIVCombinations('overall', 1, 4096, undefined, req.ivFloor).map(function (c) {
+          return [c.ivs.atk, c.ivs.def, c.ivs.hp, c.level];
+        }),
+      });
+    }
   `, ctx);
 
   const run = (fn, req) => {
@@ -153,6 +168,7 @@ function createPvpoke(srcDir) {
     moveMeta: (req) => run('__moveMeta', req),
     shieldTrace: (req) => run('__shieldTrace', req),
     shieldAt: (req) => run('__shieldAt', req),
+    ivCombinations: (req) => run('__ivCombinations', req),
   };
 }
 

@@ -11,6 +11,7 @@
     "update-data": "tsx scripts/update-data.ts",
     "gen-oracle": "tsx scripts/gen-oracle.ts",
     "gen-decision-oracle": "tsx scripts/gen-decision-oracle.ts",
+    "gen-iv-oracle": "tsx scripts/gen-iv-oracle.ts",
     "compare-oracle": "tsx scripts/compare-oracle.ts",
     "sim": "tsx scripts/sim.ts"
   },

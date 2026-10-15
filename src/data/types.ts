@@ -73,6 +73,8 @@ export interface Species {
   readonly tags: readonly string[];
   readonly nativeStatBuffs: StatPair;
   readonly hasFormChange: boolean;
+  /** Lowest level PvPoke's IV ranking considers (gamemaster levelFloor, default 1). */
+  readonly levelFloor: number;
   /** PvPoke's defaultIVs.cp1500, used by its rankings. */
   readonly defaultIvsGreat: DefaultIvs;
 }
