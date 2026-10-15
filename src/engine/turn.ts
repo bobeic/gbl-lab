@@ -52,6 +52,7 @@ function buffDeltas(buffs: MoveBuffs, moveId: string): { opponent: StatPair | nu
 export function resolveTurn(
   state: BattleState, actions: readonly [Action | null, Action | null], decideShield: ShieldDecider,
 ): { state: BattleState; events: BattleEvent[] } {
+  if (state.over) throw new IllegalActionError(`Battle is already over at turn ${state.turn}`);
   const { combatants, rules } = state;
   const sides: [SideState, SideState] = [state.sides[0], state.sides[1]];
   const events: BattleEvent[] = [];

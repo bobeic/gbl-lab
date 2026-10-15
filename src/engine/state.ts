@@ -1,8 +1,8 @@
 import type { StatPair } from '../data/types';
 import { moveDamage, type Combatant } from './combatant';
-import { MAX_ENERGY } from './constants';
+import { MAX_ENERGY, MAX_SHIELDS } from './constants';
 import { clampStage } from './damage';
-import { IllegalActionError } from '../errors';
+import { BattleSetupError, IllegalActionError } from '../errors';
 
 export type Side = 0 | 1;
 export const SIDES: readonly Side[] = [0, 1];
@@ -81,8 +81,22 @@ function initialMeter(chance: number | undefined): number | null {
   return chance === 0.5 ? 0 : chance;
 }
 
+function assertSetup(setup: BattleSetup): void {
+  for (const side of SIDES) {
+    const shields = setup.shields[side];
+    if (!Number.isInteger(shields) || shields < 0 || shields > MAX_SHIELDS) {
+      throw new BattleSetupError(`Side ${side} shields must be an integer 0-${MAX_SHIELDS}, got ${shields}`);
+    }
+    const energy = setup.startEnergy?.[side] ?? 0;
+    if (!Number.isInteger(energy) || energy < 0 || energy > MAX_ENERGY) {
+      throw new BattleSetupError(`Side ${side} start energy must be an integer 0-${MAX_ENERGY}, got ${energy}`);
+    }
+  }
+}
+
 /** Create the starting state of a 1v1 battle. */
 export function createBattle(combatants: readonly [Combatant, Combatant], setup: BattleSetup, rules: BattleRules): BattleState {
+  assertSetup(setup);
   const buffs = combatants.map((c) => [
     clampStage(c.species.nativeStatBuffs[0], rules.maxBuffStages),
     clampStage(c.species.nativeStatBuffs[1], rules.maxBuffStages),
@@ -95,7 +109,7 @@ export function createBattle(combatants: readonly [Combatant, Combatant], setup:
       moveDamage(me, buffs[i]![0], opp, buffs[other(i)]![1], move, rules.buffDivisor);
     return {
       hp: me.stats.hp,
-      energy: Math.min(setup.startEnergy?.[i] ?? 0, MAX_ENERGY),
+      energy: setup.startEnergy?.[i] ?? 0,
       cooldownMs: 0,
       shields: setup.shields[i],
       buffs: buffs[i]!,

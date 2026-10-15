@@ -78,6 +78,9 @@ export function buildCombatant(gd: GameData, spec: CombatantSpec): Combatant {
   if (spec.chargedMoveIds.length < 1 || spec.chargedMoveIds.length > 2) {
     throw new GameDataError(`${species.id} needs one or two charged moves, got ${spec.chargedMoveIds.length}`);
   }
+  if (new Set(spec.chargedMoveIds).size !== spec.chargedMoveIds.length) {
+    throw new GameDataError(`${species.id} cannot equip the same charged move twice (${spec.chargedMoveIds.join(', ')})`);
+  }
   for (const id of spec.chargedMoveIds) {
     if (!species.chargedMoveIds.includes(id)) throw new GameDataError(`${species.id} cannot learn charged move ${id}`);
   }

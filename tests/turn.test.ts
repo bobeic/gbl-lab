@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadDefaultGameData } from '../src/data';
-import { IllegalActionError } from '../src/errors';
+import { BattleSetupError, IllegalActionError } from '../src/errors';
 import { buildCombatant, type CombatantSpec } from '../src/engine/combatant';
 import { createBattle, type BattleState, type Side } from '../src/engine/state';
 import { beginTurn, canAct, resolveTurn, type Action, type BattleEvent, type ShieldDecider } from '../src/engine/turn';
@@ -162,5 +162,27 @@ describe('buffs', () => {
       s = resolveTurn(beginTurn(prepared), [{ type: 'charged', index: 0 }, null], never).state;
     }
     expect(s.sides[0].buffs[0]).toBe(4);
+  });
+});
+
+describe('createBattle setup validation', () => {
+  it.each([[[3, 0]], [[-1, 0]], [[0, 1.5]]] as [number, number][][])('rejects shields %j', (shields) => {
+    expect(() => battle(med(), azu, shields)).toThrow(BattleSetupError);
+  });
+
+  it.each([[[101, 0]], [[-1, 0]], [[0, 10.5]]] as [number, number][][])('rejects start energy %j', (energy) => {
+    expect(() => battle(med(), azu, [0, 0], energy)).toThrow(BattleSetupError);
+  });
+
+  it('accepts the boundaries 0-2 shields and 0-100 energy unchanged', () => {
+    const st = battle(med(), azu, [2, 0], [100, 0]);
+    expect(st.sides.map((s) => [s.shields, s.energy])).toEqual([[2, 100], [0, 0]]);
+  });
+});
+
+describe('resolveTurn on a finished battle', () => {
+  it('throws instead of resolving another turn', () => {
+    const over: BattleState = { ...battle(med(), azu), over: true };
+    expect(() => resolveTurn(over, [null, null], never)).toThrow(IllegalActionError);
   });
 });

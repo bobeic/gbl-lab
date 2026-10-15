@@ -1,3 +1,5 @@
+import type { BattleEvent } from './engine/turn';
+
 /** Raised when game data is malformed or references something missing. */
 export class GameDataError extends Error {
   override name = 'GameDataError';
@@ -13,6 +15,11 @@ export class UnsupportedPokemonError extends Error {
   override name = 'UnsupportedPokemonError';
 }
 
+/** Raised when a battle is set up with values the rules do not allow (shields, start energy). */
+export class BattleSetupError extends Error {
+  override name = 'BattleSetupError';
+}
+
 /** Raised when a policy returns an action the rules do not allow. */
 export class IllegalActionError extends Error {
   override name = 'IllegalActionError';
@@ -21,7 +28,7 @@ export class IllegalActionError extends Error {
 /** Raised when a battle exceeds the turn limit; carries the events so far for debugging. */
 export class TurnLimitError extends Error {
   override name = 'TurnLimitError';
-  constructor(message: string, readonly events: readonly unknown[]) {
+  constructor(message: string, readonly events: readonly BattleEvent[]) {
     super(message);
   }
 }

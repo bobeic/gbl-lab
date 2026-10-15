@@ -7,6 +7,10 @@ import { buildCombatant, effectiveStat, moveDamage } from '../src/engine/combata
 const gd = loadDefaultGameData();
 
 describe('buildCombatant', () => {
+  it('rejects the same charged move equipped twice', () => {
+    expect(() => buildCombatant(gd, { speciesId: 'medicham', fastMoveId: 'COUNTER', chargedMoveIds: ['ICE_PUNCH', 'ICE_PUNCH'] })).toThrow(GameDataError);
+  });
+
   it('defaults to PvPoke default IVs and level for Great League', () => {
     const c = buildCombatant(gd, { speciesId: 'medicham', fastMoveId: 'COUNTER', chargedMoveIds: ['ICE_PUNCH', 'PSYCHIC'] });
     expect(c.ivs).toEqual({ atk: 7, def: 15, hp: 14 });

@@ -1,5 +1,6 @@
 export const TURN_MS = 500;
 export const MAX_ENERGY = 100;
+export const MAX_SHIELDS = 2;
 // Float32 values as stored in PvPoke DamageCalculator.js; do not replace with decimal approximations.
 export const PVP_BONUS = 1.2999999523162841796875;
 export const STAB_MULTIPLIER = 1.2000000476837158203125;
