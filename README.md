@@ -40,9 +40,12 @@ From the latest `npm run compare-oracle` (`reports/oracle-report.md`):
 - Exact matches (both ratings identical): 15,150
 - Winner agreement: 100.00% (target >= 98%)
 - Median rating difference: 0 (target <= 25)
+- Form changes (`tests/fixtures/form-change-oracle.json`): 1,800 Mimikyu/Morpeko cases against corrected PvPoke and 891 Mimikyu cases against unmodified PvPoke, all exact.
 
 ## Known exclusions
-- Form-changing Pokémon (Aegislash, Cramorant, Mimikyu, Morpeko) are not supported; the engine rejects them with a typed error.
+- Mimikyu (Disguise) and Morpeko (Hunger Switch) are supported. Morpeko switches form on every charged move, as in the game. PvPoke leaves it in Hangry, so Morpeko results differ from pvpoke.com (ADR 0003).
+- Aegislash, Cramorant and other form changers are not supported; the engine rejects them with a typed error.
+- Known differences from the real game, fixed and open, are listed in `docs/known-game-differences.md`.
 - Mega Pokémon are not supported.
 - Moves whose damage is a percentage of max HP (`percentMaxHP`) are not supported.
 - The CLI has no `--ivs` flag yet (spec section 8); combatants use each species' default Great League IVs.

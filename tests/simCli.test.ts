@@ -1,5 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
+import { formatTimeline } from '../scripts/sim';
+import { loadDefaultGameData } from '../src/data/node';
+import { buildCombatant } from '../src/engine/combatant';
+import { PvPokeLikePolicy } from '../src/policy/pvpoke';
+import { runMatchup } from '../src/sim/runMatchup';
 
 describe('sim CLI', () => {
   it('prints ratings and a timeline for an explicit moveset', () => {
@@ -50,4 +55,15 @@ describe('sim CLI', () => {
   it('rejects --moves-a followed by another flag', () => {
     expect(() => execFileSync('npx', ['tsx', 'scripts/sim.ts', 'medicham', 'azumarill', '--moves-a', '--shields', '0', '0'], { encoding: 'utf8', stdio: 'pipe' })).toThrow(/--moves-a needs a value/);
   });
+});
+
+it('prints disguise and form-change events in the timeline', () => {
+  const gd = loadDefaultGameData();
+  const azu = buildCombatant(gd, { speciesId: 'azumarill', fastMoveId: 'BUBBLE', chargedMoveIds: ['ICE_BEAM', 'PLAY_ROUGH'] });
+  const mim = buildCombatant(gd, { speciesId: 'mimikyu', fastMoveId: 'SHADOW_CLAW', chargedMoveIds: ['SHADOW_SNEAK', 'PLAY_ROUGH'] });
+  const result = runMatchup(gd, azu, mim, { shields: [0, 0], policies: [new PvPokeLikePolicy(), new PvPokeLikePolicy()] });
+  const names = new Map([...gd.moves.values()].map((m) => [m.id, m.name]));
+  const out = formatTimeline(result, ['Azumarill', 'Mimikyu'], names);
+  expect(out).toMatch(/Mimikyu disguise blocked \d+/);
+  expect(out).toContain('Mimikyu changes form: mimikyu -> mimikyu_busted');
 });

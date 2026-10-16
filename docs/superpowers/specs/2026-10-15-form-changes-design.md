@@ -1,7 +1,7 @@
 # Form Changes (Mimikyu, Morpeko) — Design Spec
 
 Date: 2026-10-15
-Status: Draft, awaiting review
+Status: Implemented (2026-10-15)
 Builds on: `2026-10-15-battle-engine-design.md` (the battle engine spec, "engine spec" below)
 
 ## 1. Context and intent
