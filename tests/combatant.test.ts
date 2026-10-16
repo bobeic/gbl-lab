@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadDefaultGameData } from '../src/data/node';
 import { GameDataError, StatsError, UnsupportedPokemonError } from '../src/errors';
-import { buildCombatant, effectiveStat, moveDamage } from '../src/engine/combatant';
+import { buildCombatant, effectiveStat, moveDamage, withForm } from '../src/engine/combatant';
 
 const gd = loadDefaultGameData();
 
@@ -50,7 +50,7 @@ describe('buildCombatant', () => {
 
   it('rejects unknown species, form changers and megas', () => {
     expect(() => buildCombatant(gd, { speciesId: 'nope', fastMoveId: 'X', chargedMoveIds: ['Y'] })).toThrow(GameDataError);
-    expect(() => buildCombatant(gd, { speciesId: 'mimikyu', fastMoveId: 'SHADOW_CLAW', chargedMoveIds: ['PLAY_ROUGH'] }))
+    expect(() => buildCombatant(gd, { speciesId: 'aegislash_shield', fastMoveId: 'AEGISLASH_CHARGE_PSYCHO_CUT', chargedMoveIds: ['SHADOW_BALL'] }))
       .toThrow(UnsupportedPokemonError);
     expect(() => buildCombatant(gd, { speciesId: 'medicham_mega', fastMoveId: 'COUNTER', chargedMoveIds: ['ICE_PUNCH'] }))
       .toThrow(UnsupportedPokemonError);
@@ -71,5 +71,52 @@ describe('moveDamage', () => {
     expect(moveDamage(med, 0, azu, 0, med.fastMove, 4)).toBe(4);
     expect(moveDamage(azu, 0, med, 0, azu.fastMove, 4)).toBe(5);
     expect(moveDamage(med, 0, azu, 0, med.chargedMoves[0]!, 4)).toBe(20);
+  });
+});
+
+describe('form-changing Pokémon', () => {
+  const morpekoSpec = { speciesId: 'morpeko_full_belly', fastMoveId: 'THUNDER_SHOCK', chargedMoveIds: ['AURA_WHEEL_ELECTRIC', 'PSYCHIC_FANGS'] };
+  const mimikyuSpec = { speciesId: 'mimikyu', fastMoveId: 'SHADOW_CLAW', chargedMoveIds: ['SHADOW_SNEAK', 'PLAY_ROUGH'] };
+
+  it('builds Morpeko with both forms and Aura Wheel swapped in the same slot', () => {
+    const c = buildCombatant(gd, morpekoSpec);
+    expect(c.startFormId).toBe('morpeko_full_belly');
+    expect([...c.forms.keys()]).toEqual(['morpeko_full_belly', 'morpeko_hangry']);
+    expect(c.forms.get('morpeko_hangry')?.chargedMoves.map((m) => m.id)).toEqual(['AURA_WHEEL_DARK', 'PSYCHIC_FANGS']);
+    expect(c.forms.get('morpeko_hangry')?.formChange?.alternativeFormId).toBe('morpeko_full_belly');
+    expect(withForm(c, 'morpeko_hangry').chargedMoves[0]?.id).toBe('AURA_WHEEL_DARK');
+    expect(withForm(c, 'morpeko_hangry').stats).toEqual(c.stats);
+    expect(withForm(c, 'morpeko_full_belly')).toBe(c);
+  });
+
+  it('builds Mimikyu with its busted form, which carries -1 Defense and no further change', () => {
+    const c = buildCombatant(gd, mimikyuSpec);
+    expect([...c.forms.keys()]).toEqual(['mimikyu', 'mimikyu_busted']);
+    expect(c.forms.get('mimikyu')?.formChange?.effect).toBe('protect');
+    expect(c.forms.get('mimikyu_busted')?.nativeStatBuffs).toEqual([0, -1]);
+    expect(c.forms.get('mimikyu_busted')?.formChange?.trigger).toBe('none');
+  });
+
+  it('gives an ordinary Pokémon a single form with its species types', () => {
+    const c = buildCombatant(gd, { speciesId: 'medicham', fastMoveId: 'COUNTER', chargedMoveIds: ['ICE_PUNCH'] });
+    expect([...c.forms.keys()]).toEqual(['medicham']);
+    expect(c.types).toEqual(['fighting', 'psychic']);
+  });
+
+  it('fails loudly for a form the combatant does not have', () => {
+    const c = buildCombatant(gd, mimikyuSpec);
+    expect(() => withForm(c, 'morpeko_hangry')).toThrow(new GameDataError('mimikyu has no form morpeko_hangry'));
+  });
+
+  it('rejects battle-only forms, naming the form to use', () => {
+    expect(() => buildCombatant(gd, { ...morpekoSpec, speciesId: 'morpeko_hangry', chargedMoveIds: ['AURA_WHEEL_DARK'] }))
+      .toThrow(new GameDataError('morpeko_hangry is a battle-only form; use morpeko_full_belly'));
+    expect(() => buildCombatant(gd, { ...mimikyuSpec, speciesId: 'mimikyu_busted' }))
+      .toThrow(new GameDataError('mimikyu_busted is a battle-only form; use mimikyu'));
+  });
+
+  it('still rejects Cramorant, naming its rule', () => {
+    expect(() => buildCombatant(gd, { speciesId: 'cramorant', fastMoveId: 'PECK', chargedMoveIds: ['SURF'] }))
+      .toThrow(new UnsupportedPokemonError('cramorant: form change (charged_move -> variable) is not modelled yet'));
   });
 });
