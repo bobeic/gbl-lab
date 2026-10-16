@@ -8,3 +8,4 @@ export * from './advice';
 export * from './shieldAdvice';
 export * from './reasons';
 export * from './battle';
+export * from './persist';
