@@ -22,7 +22,7 @@ export interface OracleSummary {
   worst: OracleDiff[];
 }
 
-interface Case { a: OracleMon; b: OracleMon; shields: [number, number]; ratings: [number, number] }
+export interface OracleCase { a: OracleMon; b: OracleMon; shields: [number, number]; ratings: [number, number] }
 
 const FIXTURE = 'tests/fixtures/oracle-gl.json';
 
@@ -36,10 +36,9 @@ function runOurs(gd: GameData, a: OracleMon, b: OracleMon, shields: [number, num
   return runMatchup(gd, build(gd, a), build(gd, b), { shields, policies: [new PvPokeLikePolicy(), new PvPokeLikePolicy()] });
 }
 
-/** Run every default-policy oracle case through our engine and summarise agreement with PvPoke. */
-export function compareOracle(): OracleSummary {
+/** Run oracle cases through our engine and summarise agreement with PvPoke's recorded ratings. */
+export function compareCases(cases: readonly OracleCase[]): OracleSummary {
   const gd = loadDefaultGameData();
-  const { cases } = JSON.parse(readFileSync(FIXTURE, 'utf8')) as { cases: Case[] };
   const diffs: OracleDiff[] = cases.map((c) => {
     const r = runOurs(gd, c.a, c.b, c.shields);
     return {
@@ -55,6 +54,12 @@ export function compareOracle(): OracleSummary {
     exactMatches: diffs.filter((d) => d.ours[0] === d.theirs[0] && d.ours[1] === d.theirs[1]).length,
     worst: [...diffs].sort((x, y) => Number(x.winnerAgrees) - Number(y.winnerAgrees) || y.diff - x.diff).slice(0, 20),
   };
+}
+
+/** Run every default-policy oracle case through our engine and summarise agreement with PvPoke. */
+export function compareOracle(): OracleSummary {
+  const { cases } = JSON.parse(readFileSync(FIXTURE, 'utf8')) as { cases: OracleCase[] };
+  return compareCases(cases);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
