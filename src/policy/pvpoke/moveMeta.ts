@@ -1,6 +1,5 @@
 import type { ChargedMove } from '../../data/types';
 import type { Combatant } from '../../engine/combatant';
-import type { SideState } from '../../engine/state';
 import { GameDataError } from '../../errors';
 
 /** PvPoke move.dpe as Pokemon.initializeMove sets it: damage per energy, scaled up for stat-boosting moves. */
@@ -56,17 +55,17 @@ function withoutBuffs(move: ChargedMove): ChargedMove {
 
 /**
  * Order a side's charged moves and pick its best and fastest move, as PvPoke Pokemon.resetMoves does.
- * `s` must be the side's start-of-battle state: PvPoke runs resetMoves once, at Battle.start, with native buffs.
+ * `basis` is the per-slot damage when resetMoves last ran: at Battle.start and at each form change (SideState.moveOrderBasis).
  */
 export function orderChargedMoves(
-  c: Combatant, s: SideState, buffDivisor: number,
+  c: Combatant, basis: readonly number[], buffDivisor: number,
 ): { active: ChargedMove[]; best: ChargedMove | null; fastest: ChargedMove | null } {
   // PvPoke Pokemon.js:711-722 (move pool damage/DPE from initializeMove)
   const active: Entry[] = [];
 
   // PvPoke Pokemon.js:726-750 (buff meters are engine state; see createBattle)
   c.chargedMoves.forEach((move, i) => {
-    const damage = s.lastDamage.charged[i];
+    const damage = basis[i];
     if (damage === undefined) throw new GameDataError(`${c.species.id}: no damage recorded for ${move.id}`);
     active.push({ move, damage, dpe: dpe(move, damage, buffDivisor) });
   });

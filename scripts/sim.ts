@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { loadDefaultGameData } from '../src/data/node';
 import { buildCombatant, type Combatant } from '../src/engine/combatant';
 import type { Side } from '../src/engine/state';
@@ -20,6 +21,8 @@ export function formatTimeline(result: MatchupResult, names: [string, string], m
     const t = `T${String(e.turn).padStart(3)}`;
     if (e.kind === 'fast') lines.push(`${t} ${who} ${moveNames.get(e.moveId)} ${e.damage}`);
     if (e.kind === 'charged') lines.push(`${t} ${who} ${moveNames.get(e.moveId)} ${e.damage}${e.shielded ? ' (shielded)' : ''}  <<<`);
+    if (e.kind === 'disguise') lines.push(`${t} ${who} disguise blocked ${e.blockedDamage}`);
+    if (e.kind === 'formChange') lines.push(`${t} ${who} changes form: ${e.from} -> ${e.to}`);
     if (e.kind === 'buff') lines.push(`${t} ${who} stats ${e.stages[0] >= 0 ? '+' : ''}${e.stages[0]} atk ${e.stages[1] >= 0 ? '+' : ''}${e.stages[1]} def`);
     if (e.kind === 'faint') lines.push(`${t} ${who} faints`);
   }
@@ -83,9 +86,11 @@ function main(): void {
   if (pvpoke && trace) console.log(['', 'Decision trace', ...pvpoke.trace].join('\n'));
 }
 
-try {
-  main();
-} catch (e) {
-  console.error((e as Error).message);
-  process.exit(1);
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  try {
+    main();
+  } catch (e) {
+    console.error((e as Error).message);
+    process.exit(1);
+  }
 }

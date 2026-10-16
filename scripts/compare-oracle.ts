@@ -1,12 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { loadDefaultGameData } from '../src/data/node';
 import type { GameData } from '../src/data/types';
 import { buildCombatant, type Combatant } from '../src/engine/combatant';
 import { PvPokeLikePolicy } from '../src/policy/pvpoke';
 import { runMatchup, type MatchupResult } from '../src/sim/runMatchup';
-import type { OracleMon, PvpokeHarness } from './oracle/harness';
+import type { OracleMon } from './oracle/harness';
+import { loadPvpoke } from './oracle/load';
 
 export interface OracleDiff {
   a: OracleMon; b: OracleMon; shields: [number, number];
@@ -22,7 +22,7 @@ export interface OracleSummary {
   worst: OracleDiff[];
 }
 
-interface Case { a: OracleMon; b: OracleMon; shields: [number, number]; ratings: [number, number] }
+export interface OracleCase { a: OracleMon; b: OracleMon; shields: [number, number]; ratings: [number, number] }
 
 const FIXTURE = 'tests/fixtures/oracle-gl.json';
 
@@ -36,10 +36,9 @@ function runOurs(gd: GameData, a: OracleMon, b: OracleMon, shields: [number, num
   return runMatchup(gd, build(gd, a), build(gd, b), { shields, policies: [new PvPokeLikePolicy(), new PvPokeLikePolicy()] });
 }
 
-/** Run every default-policy oracle case through our engine and summarise agreement with PvPoke. */
-export function compareOracle(): OracleSummary {
+/** Run oracle cases through our engine and summarise agreement with PvPoke's recorded ratings. */
+export function compareCases(cases: readonly OracleCase[]): OracleSummary {
   const gd = loadDefaultGameData();
-  const { cases } = JSON.parse(readFileSync(FIXTURE, 'utf8')) as { cases: Case[] };
   const diffs: OracleDiff[] = cases.map((c) => {
     const r = runOurs(gd, c.a, c.b, c.shields);
     return {
@@ -57,11 +56,15 @@ export function compareOracle(): OracleSummary {
   };
 }
 
+/** Run every default-policy oracle case through our engine and summarise agreement with PvPoke. */
+export function compareOracle(): OracleSummary {
+  const { cases } = JSON.parse(readFileSync(FIXTURE, 'utf8')) as { cases: OracleCase[] };
+  return compareCases(cases);
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const summary = compareOracle();
-  const require = createRequire(import.meta.url);
-  const { createPvpoke } = require('./oracle/pvpokeHarness.cjs') as { createPvpoke: (d: string) => PvpokeHarness };
-  const pvpoke = createPvpoke('.cache/pvpoke/src');
+  const pvpoke = loadPvpoke();
   const gd = loadDefaultGameData();
   const lines = [
     '# Oracle report', '',

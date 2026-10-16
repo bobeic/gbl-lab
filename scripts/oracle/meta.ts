@@ -15,7 +15,7 @@ export function metaSpecies(gd: GameData, count: number): OracleMon[] {
       buildCombatant(gd, { speciesId: r.speciesId, fastMoveId: fastMoveId!, chargedMoveIds });
       out.push({ speciesId: r.speciesId, moveset: r.moveset });
     } catch (err) {
-      // Unsupported (form change, mega, etc.) - excluded from the oracle set by design (spec §10).
+      // Unsupported (Aegislash, Cramorant, megas, etc.) - excluded from the oracle set by design (engine spec §10).
       if (!(err instanceof UnsupportedPokemonError || err instanceof GameDataError)) throw err;
       console.error(`excluded ${r.speciesId}: ${err.name}: ${err.message}`);
     }

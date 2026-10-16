@@ -1,15 +1,13 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { loadDefaultGameData } from '../src/data/node';
 import type { ScriptedCharged } from '../src/policy/testPolicies';
 import type { OracleMon, PvpokeHarness, PvpokeRequest, PvpokeResult } from './oracle/harness';
 import { metaSpecies } from './oracle/meta';
+import { loadPvpoke } from './oracle/load';
 
-const require = createRequire(import.meta.url);
-const { createPvpoke } = require('./oracle/pvpokeHarness.cjs') as { createPvpoke: (dir: string) => PvpokeHarness };
 
 const upstream = readFileSync('data/UPSTREAM', 'utf8').trim();
-const pvpoke = createPvpoke('.cache/pvpoke/src');
+const pvpoke = loadPvpoke();
 const gd = loadDefaultGameData();
 
 /** Deterministic pseudo-random generator so fixtures are reproducible. */
@@ -34,9 +32,9 @@ function hasChanceBuff(mon: OracleMon): boolean {
 /** One recorded oracle matchup: the request plus PvPoke's final ratings and HP. */
 type OracleCase = PvpokeRequest & Pick<PvpokeResult, 'ratings' | 'hp'>;
 
-/** Run one request through PvPoke and keep the request with its outcome. */
-function record(req: PvpokeRequest): OracleCase {
-  const res = pvpoke.simulate(req);
+/** Run one request through a PvPoke harness and keep the request with its outcome. */
+function record(harness: PvpokeHarness, req: PvpokeRequest): OracleCase {
+  const res = harness.simulate(req);
   return { ...req, ratings: res.ratings, hp: res.hp };
 }
 
@@ -47,7 +45,7 @@ function engineCases(): OracleCase[] {
   const cases: OracleCase[] = [];
   for (let i = 0; i < meta.length; i++) {
     for (let j = i; j < meta.length; j++) {
-      cases.push(record({ a: meta[i]!, b: meta[j]!, shields: [0, 0], mode: 'fastOnly' }));
+      cases.push(record(pvpoke, { a: meta[i]!, b: meta[j]!, shields: [0, 0], mode: 'fastOnly' }));
     }
   }
   const scriptable = meta.filter((m) => !hasChanceBuff(m));
@@ -60,7 +58,7 @@ function engineCases(): OracleCase[] {
       const mon = side === 0 ? a : b;
       script.push({ side, turn: 5 + Math.floor(rand() * 60), index: Math.floor(rand() * (mon.moveset.length - 1)), shielded: rand() < 0.5 });
     }
-    cases.push(record({ a, b, shields: [Math.floor(rand() * 3), Math.floor(rand() * 3)] as [number, number], mode: 'scripted', script }));
+    cases.push(record(pvpoke, { a, b, shields: [Math.floor(rand() * 3), Math.floor(rand() * 3)] as [number, number], mode: 'scripted', script }));
   }
   return cases;
 }
@@ -77,7 +75,7 @@ function defaultCases(): OracleCase[] {
   for (const s of [0, 1, 2] as const) {
     for (let i = 0; i < meta.length; i++) {
       for (let j = i; j < meta.length; j++) {
-        cases.push(record({ a: meta[i]!, b: meta[j]!, shields: [s, s], mode: 'default' }));
+        cases.push(record(pvpoke, { a: meta[i]!, b: meta[j]!, shields: [s, s], mode: 'default' }));
       }
     }
   }
@@ -87,3 +85,30 @@ function defaultCases(): OracleCase[] {
 const def = defaultCases();
 writeFileSync('tests/fixtures/oracle-gl.json', JSON.stringify({ upstream, cases: def }));
 console.log(`oracle-gl.json: ${def.length} cases`);
+
+/** One form changer against every top-100 opponent at all nine shield pairings (form-changes spec §6.1). */
+function formChangeCases(harness: PvpokeHarness, meta: OracleMon[], speciesId: string, opponents: OracleMon[]): OracleCase[] {
+  const mon = meta.find((m) => m.speciesId === speciesId);
+  if (!mon) throw new Error(`${speciesId} is not in the top-100 meta`);
+  const cases: OracleCase[] = [];
+  for (const opp of opponents) {
+    for (const s0 of [0, 1, 2]) {
+      for (const s1 of [0, 1, 2]) cases.push(record(harness, { a: mon, b: opp, shields: [s0, s1], mode: 'default' }));
+    }
+  }
+  return cases;
+}
+
+const top100 = metaSpecies(gd, 100);
+const unmodified = loadPvpoke('unmodified');
+const formChange = {
+  upstream,
+  corrected: [
+    ...formChangeCases(pvpoke, top100, 'mimikyu', top100),
+    ...formChangeCases(pvpoke, top100, 'morpeko_full_belly', top100),
+  ],
+  // Unmodified PvPoke must agree for Mimikyu (excluding Morpeko opponents): the corrections touch only Morpeko.
+  unmodified: formChangeCases(unmodified, top100, 'mimikyu', top100.filter((m) => m.speciesId !== 'morpeko_full_belly')),
+};
+writeFileSync('tests/fixtures/form-change-oracle.json', JSON.stringify(formChange));
+console.log(`form-change-oracle.json: ${formChange.corrected.length} corrected + ${formChange.unmodified.length} unmodified cases`);

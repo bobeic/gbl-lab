@@ -10,8 +10,14 @@ const FILES = [
 ];
 
 /** Load PvPoke from a checkout's src/ directory and return its simulate, moveMeta, shieldTrace, shieldAt and ivCombinations probes. */
-function createPvpoke(srcDir) {
+function createPvpoke(srcDir, options) {
   const gamemaster = JSON.parse(fs.readFileSync(path.join(srcDir, 'data', 'gamemaster.json'), 'utf8'));
+  // gbl-lab's corrections (src/data/corrections.ts, ADR 0003) so the oracle models the same game as the engine.
+  for (const c of (options && options.formChangeCorrections) || []) {
+    const entry = gamemaster.pokemon.find((p) => p.speciesId === c.speciesId);
+    if (!entry) throw new Error(`correction for unknown species ${c.speciesId}`);
+    entry.formChange = JSON.parse(JSON.stringify(c.formChange));
+  }
   const pending = [];
   // jQuery stub: every DOM call is a no-op chain; $.ajax defers the gamemaster callback.
   const chain = new Proxy(function () {}, { get: (_t, k) => (k === 'length' ? 0 : chain), apply: () => chain });

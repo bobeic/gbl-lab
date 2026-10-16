@@ -76,10 +76,48 @@ describe('loadGameData', () => {
     expect(gd.moves.get('PSYCHIC')?.buffs?.chance).toBe(0.1);
   });
 
+  it('defaults formChange to null and released to true', () => {
+    const medicham = loadGameData(minimal()).species.get('medicham');
+    expect(medicham?.formChange).toBeNull();
+    expect(medicham?.released).toBe(true);
+  });
+
+  it('parses a formChange block', () => {
+    const raw = minimal();
+    (raw.pokemon as Record<string, unknown>[])[0]!.formChange = {
+      type: 'set', trigger: 'charged_move_damage', effect: 'protect', moveId: 'ANY', alternativeFormId: 'medicham', resetOnSwitch: false,
+    };
+    expect(loadGameData(raw).species.get('medicham')?.formChange).toEqual({
+      trigger: 'charged_move_damage', effect: 'protect', moveId: 'ANY', moveIds: null, alternativeFormId: 'medicham', resetOnSwitch: false,
+    });
+  });
+
+  it('rejects a malformed formChange or released flag', () => {
+    const badTrigger = minimal();
+    (badTrigger.pokemon as Record<string, unknown>[])[0]!.formChange = { trigger: 7 };
+    expect(() => loadGameData(badTrigger)).toThrow(GameDataError);
+    const badReleased = minimal();
+    (badReleased.pokemon as Record<string, unknown>[])[0]!.released = 'yes';
+    expect(() => loadGameData(badReleased)).toThrow(new GameDataError('medicham: released must be a boolean'));
+  });
+
+  it('reads Mimikyu and Morpeko form changes, with the Morpeko correction applied', () => {
+    const gd = loadDefaultGameData();
+    expect(gd.species.get('mimikyu')?.formChange).toEqual({
+      trigger: 'charged_move_damage', effect: 'protect', moveId: 'ANY', moveIds: null, alternativeFormId: 'mimikyu_busted', resetOnSwitch: false,
+    });
+    expect(gd.species.get('mimikyu_busted')?.released).toBe(false);
+    expect(gd.species.get('morpeko_full_belly')?.formChange?.alternativeFormId).toBe('morpeko_hangry');
+    // PvPoke's gamemaster has no rule on morpeko_hangry; FORM_CHANGE_CORRECTIONS adds the switch back (ADR 0003).
+    expect(gd.species.get('morpeko_hangry')?.formChange).toEqual({
+      trigger: 'charged_move', effect: null, moveId: 'ANY', moveIds: null, alternativeFormId: 'morpeko_full_belly', resetOnSwitch: true,
+    });
+  });
+
   it('loads the vendored gamemaster', () => {
     const gd = loadDefaultGameData();
     expect(gd.species.size).toBeGreaterThan(1500);
-    expect(gd.species.get('mimikyu')?.hasFormChange).toBe(true);
+    expect(gd.species.get('mimikyu')?.formChange).not.toBeNull();
     expect(gd.species.get('registeel_shadow')?.tags).toContain('shadow');
   });
 });

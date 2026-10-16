@@ -58,4 +58,7 @@ export interface PvpokeHarness {
   /** PvPoke's IV ranking by stat product (Pokemon.generateIVCombinations('overall', 1, 4096)). */
   ivCombinations(req: IvCombinationsRequest): PvpokeIvRanking;
 }
-export function createPvpoke(srcDir: string): PvpokeHarness;
+export interface PvpokeOptions {
+  formChangeCorrections?: readonly { speciesId: string; formChange: Readonly<Record<string, unknown>> }[];
+}
+export function createPvpoke(srcDir: string, options?: PvpokeOptions): PvpokeHarness;

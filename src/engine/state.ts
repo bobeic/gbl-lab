@@ -1,5 +1,5 @@
 import type { StatPair } from '../data/types';
-import { moveDamage, type Combatant } from './combatant';
+import { formOf, moveDamage, withForm, type Combatant, type Form } from './combatant';
 import { MAX_ENERGY, MAX_SHIELDS } from './constants';
 import { clampStage } from './damage';
 import { BattleSetupError, IllegalActionError } from '../errors';
@@ -10,6 +10,16 @@ export const SIDES: readonly Side[] = [0, 1];
 /** Return the opposing side. */
 export function other(side: Side): Side {
   return side === 0 ? 1 : 0;
+}
+
+/** The side's combatant in its active form: types and charged moves follow form changes. */
+export function activeCombatant(state: BattleState, side: Side): Combatant {
+  return withForm(state.combatants[side], state.sides[side].formId);
+}
+
+/** The side's active form, including the form-change rule in force. */
+export function activeForm(state: BattleState, side: Side): Form {
+  return formOf(state.combatants[side], state.sides[side].formId);
 }
 
 export interface SideState {
@@ -23,6 +33,10 @@ export interface SideState {
   readonly buffMeters: readonly (number | null)[];
   /** PvPoke's mutable move.damage: last computed damage per move, read by decision logic. */
   readonly lastDamage: { readonly fast: number; readonly charged: readonly number[] };
+  /** Active form (PvPoke activeFormId); starts at the combatant's startFormId. */
+  readonly formId: string;
+  /** Per-slot charged damage when PvPoke's resetMoves last ran (battle start or a form change); the policy orders moves from it. */
+  readonly moveOrderBasis: readonly number[];
 }
 
 /** A new PvPoke `move.damage` value for one charged move, written by decision logic rather than by using the move. */
@@ -75,7 +89,8 @@ export interface BattleSetup {
   readonly startEnergy?: readonly [number, number];
 }
 
-function initialMeter(chance: number | undefined): number | null {
+/** PvPoke's starting buffApplyMeter for a charged move's buff chance; null when the buff is certain or absent. */
+export function initialMeter(chance: number | undefined): number | null {
   if (chance === undefined || chance >= 1) return null;
   // PvPoke Pokemon.resetMoves (Pokemon.js:740-746): 50% moves apply on the second use
   return chance === 0.5 ? 0 : chance;
@@ -107,6 +122,7 @@ export function createBattle(combatants: readonly [Combatant, Combatant], setup:
     const opp = combatants[other(i)];
     const dmg = (move: Combatant['fastMove'] | Combatant['chargedMoves'][number]): number =>
       moveDamage(me, buffs[i]![0], opp, buffs[other(i)]![1], move, rules.buffDivisor);
+    const charged = me.chargedMoves.map(dmg);
     return {
       hp: me.stats.hp,
       energy: setup.startEnergy?.[i] ?? 0,
@@ -115,7 +131,9 @@ export function createBattle(combatants: readonly [Combatant, Combatant], setup:
       buffs: buffs[i]!,
       faintSource: 'none',
       buffMeters: me.chargedMoves.map((m) => initialMeter(m.buffs?.chance)),
-      lastDamage: { fast: dmg(me.fastMove), charged: me.chargedMoves.map(dmg) },
+      lastDamage: { fast: dmg(me.fastMove), charged },
+      formId: me.startFormId,
+      moveOrderBasis: charged,
     };
   };
 

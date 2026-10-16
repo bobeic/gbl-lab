@@ -12,7 +12,7 @@ const vs = (id: string, fast: string, charged: string[]) => {
   const me = buildCombatant(gd, { speciesId: id, fastMoveId: fast, chargedMoveIds: charged });
   const opp = buildCombatant(gd, { speciesId: 'azumarill', fastMoveId: 'BUBBLE', chargedMoveIds: ['ICE_BEAM'] });
   const st = createBattle([me, opp], { shields: [1, 1] }, rules);
-  return orderChargedMoves(me, st.sides[0], st.rules.buffDivisor);
+  return orderChargedMoves(me, st.sides[0].moveOrderBasis, st.rules.buffDivisor);
 };
 
 // Expected values below come from the PvPoke harness probe `moveMeta` (see task-10 report).

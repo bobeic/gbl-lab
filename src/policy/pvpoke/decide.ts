@@ -319,7 +319,14 @@ export function decide(state: BattleState, me: Side, trace?: string[]): PolicyDe
     }
   }
 
-  // PvPoke ActionLogic.js:236-252 skipped: Mimikyu-style "protect" form change (form changes unsupported).
+  // PvPoke ActionLogic.js:236-252: if the opponent is Mimikyu or has a similar mechanic, throw the fastest charged move ASAP
+  if (opponent.form.formChange?.effect === 'protect' && opponent.s.shields === 0) {
+    const fastest = poke.fastestChargedMove;
+    if (fastest && poke.s.energy >= fastest.energy && !fastest.selfDebuffing) {
+      log(() => ` uses ${fastest.name} to break opponent's ability as soon as possible.`);
+      return done({ type: 'charged', index: poke.indexOf(fastest) });
+    }
+  }
 
   // PvPoke ActionLogic.js:254-363: optimize move timing to reduce free turns
   if (poke.c.settings.optimizeMoveTiming) {

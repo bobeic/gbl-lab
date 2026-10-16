@@ -11,6 +11,12 @@ describe('PvPoke oracle acceptance (spec §7.2)', () => {
     expect(summary.total).toBe(fixture.cases.length);
   });
 
+  it('includes the form changers Mimikyu and Morpeko in the top-100 set', () => {
+    const ids = new Set((fixture.cases as { a: { speciesId: string } }[]).map((c) => c.a.speciesId));
+    expect(ids.has('mimikyu')).toBe(true);
+    expect(ids.has('morpeko_full_belly')).toBe(true);
+  });
+
   it('was generated from the vendored PvPoke commit', () => {
     expect(fixture.upstream).toBe(readFileSync('data/UPSTREAM', 'utf8').trim());
   });
