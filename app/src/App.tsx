@@ -59,7 +59,9 @@ export function App({ fetchData = fetchAppData, store = browserStore() }: AppPro
         <button type="button" class="link" onClick={() => setView('explainer')}>What the number means</button>
       </nav>
       {view === 'battle' && <BattleScreen />}
-      {view === 'team' && <TeamScreen />}
+      {view === 'team' && (
+        <TeamScreen app={load.app} roster={saved.roster} team={saved.team} onChange={(roster, team) => dispatch({ type: 'setTeam', roster, team })} />
+      )}
       {view === 'explainer' && <RatingExplainer onClose={() => setView('battle')} />}
     </main>
   );
