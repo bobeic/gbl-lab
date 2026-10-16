@@ -1,6 +1,7 @@
 import { GameDataError } from '../errors';
+import { FORM_CHANGE_CORRECTIONS } from './corrections';
 import {
-  POKEMON_TYPES, type BuffTarget, type ChargedMove, type FastMove, type GameData, type Move,
+  POKEMON_TYPES, type BuffTarget, type ChargedMove, type FastMove, type FormChange, type GameData, type Move,
   type MoveBuffs, type PokemonType, type Species, type StatPair,
 } from './types';
 
@@ -33,6 +34,32 @@ function strArray(obj: Raw, key: string, ctx: string, required: boolean): string
     throw new GameDataError(`${ctx}: field "${key}" must be an array of strings`);
   }
   return value as string[];
+}
+
+function bool(obj: Raw, key: string, ctx: string): boolean {
+  const v = obj[key];
+  if (typeof v !== 'boolean') throw new GameDataError(`${ctx}: ${key} must be a boolean`);
+  return v;
+}
+
+function optStr(obj: Raw, key: string, ctx: string): string | null {
+  const v = obj[key];
+  if (v === undefined) return null;
+  if (typeof v !== 'string') throw new GameDataError(`${ctx}: ${key} must be a string`);
+  return v;
+}
+
+function parseFormChange(raw: unknown, id: string): FormChange {
+  const ctx = `${id} formChange`;
+  if (!isRecord(raw)) throw new GameDataError(`${ctx}: expected an object`);
+  return {
+    trigger: str(raw, 'trigger', ctx),
+    effect: optStr(raw, 'effect', ctx),
+    moveId: optStr(raw, 'moveId', ctx),
+    moveIds: raw.moveIDs === undefined ? null : strArray(raw, 'moveIDs', ctx, true),
+    alternativeFormId: optStr(raw, 'alternativeFormId', ctx),
+    resetOnSwitch: raw.resetOnSwitch === undefined ? false : bool(raw, 'resetOnSwitch', ctx),
+  };
 }
 
 function pair(value: unknown, ctx: string): StatPair {
@@ -139,6 +166,11 @@ function parseSpecies(p: unknown, index: number, moves: ReadonlyMap<string, Move
     throw new GameDataError(`${id}: levelFloor must be a half-level between 1 and 55, got ${levelFloor}`);
   }
 
+  // A correction replaces PvPoke's block outright (src/data/corrections.ts). A correction for a species that
+  // isn't in this data has nothing to correct; tests on the vendored gamemaster pin that each one applies.
+  const correction = FORM_CHANGE_CORRECTIONS.find((c) => c.speciesId === id);
+  const rawFormChange = correction ? correction.formChange : p.formChange;
+
   return {
     id,
     dex: num(p, 'dex', id),
@@ -150,7 +182,8 @@ function parseSpecies(p: unknown, index: number, moves: ReadonlyMap<string, Move
     eliteMoveIds: strArray(p, 'eliteMoves', id, false),
     tags: strArray(p, 'tags', id, false),
     nativeStatBuffs: p.nativeStatBuffs === undefined ? [0, 0] : pair(p.nativeStatBuffs, id),
-    hasFormChange: p.formChange !== undefined,
+    formChange: rawFormChange === undefined ? null : parseFormChange(rawFormChange, id),
+    released: p.released === undefined ? true : bool(p, 'released', id),
     levelFloor,
     defaultIvsGreat: { level: iv[0] as number, atk: iv[1] as number, def: iv[2] as number, hp: iv[3] as number },
   };

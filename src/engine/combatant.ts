@@ -39,7 +39,7 @@ export interface CombatantSpec {
 const DEFAULT_SETTINGS: PolicySettings = { baitShields: 1, optimizeMoveTiming: true, farmEnergy: false };
 
 function assertSupported(species: Species, moves: readonly Move[]): void {
-  if (species.hasFormChange) throw new UnsupportedPokemonError(`${species.id} changes form in battle; not modelled yet`);
+  if (species.formChange) throw new UnsupportedPokemonError(`${species.id} changes form in battle; not modelled yet`);
   if (species.tags.includes('mega')) throw new UnsupportedPokemonError(`${species.id} is a mega; not modelled yet`);
   for (const move of moves) {
     if (move.damageMethod !== 'default') throw new UnsupportedPokemonError(`${move.id} uses damage method ${move.damageMethod}`);
