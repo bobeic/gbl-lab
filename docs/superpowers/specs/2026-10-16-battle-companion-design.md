@@ -1,7 +1,7 @@
 # Battle Companion: Design Spec (Sub-project 3)
 
 Date: 2026-10-16
-Status: Approved (2026-10-16)
+Status: Implemented (2026-10-16)
 
 ## 1. Context and intent
 
