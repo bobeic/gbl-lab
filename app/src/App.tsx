@@ -58,7 +58,16 @@ export function App({ fetchData = fetchAppData, store = browserStore() }: AppPro
         <button type="button" class={view === 'team' ? 'tab on' : 'tab'} onClick={() => setView('team')}>Team</button>
         <button type="button" class="link" onClick={() => setView('explainer')}>What the number means</button>
       </nav>
-      {view === 'battle' && <BattleScreen />}
+      {view === 'battle' && (
+        <BattleScreen
+          app={load.app}
+          roster={saved.roster}
+          team={saved.team}
+          battle={saved.battle}
+          dispatch={(action) => dispatch({ type: 'battle', action })}
+          onGoToTeam={() => setView('team')}
+        />
+      )}
       {view === 'team' && (
         <TeamScreen app={load.app} roster={saved.roster} team={saved.team} onChange={(roster, team) => dispatch({ type: 'setTeam', roster, team })} />
       )}
