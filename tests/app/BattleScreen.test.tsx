@@ -111,6 +111,13 @@ describe('BattleScreen', () => {
     expect(screen.getByRole('region', { name: 'Opponent' }).textContent).toContain('4-4-4');
   });
 
+  it('survives a saved opponent that is no longer in the rankings', () => {
+    const battle = { ...initialBattle(), now: { ...initialBattle().now, opponents: [{ speciesId: 'gone_from_rankings', fainted: false }], current: 0 } };
+    render(<BattleScreen app={app} roster={entries('araquanid', 'medicham', 'azumarill')} team={[0, 1, 2]} battle={battle} dispatch={() => {}} onGoToTeam={() => {}} />);
+    expect(screen.getByRole('alert').textContent).toContain('gone_from_rankings');
+    expect(screen.getByPlaceholderText('Search opponent…')).toBeTruthy();
+  });
+
   it('confirms before starting a new battle', () => {
     const spy = setup();
     fireEvent.click(screen.getByRole('button', { name: 'New battle' }));

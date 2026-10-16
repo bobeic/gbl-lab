@@ -68,9 +68,15 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
 
   const currentId = now.current === null ? null : now.opponents[now.current]?.speciesId ?? null;
   let card: Card | null = null;
+  let cardError: string | null = null;
   if (currentId !== null) {
-    card = cards.get(currentId) ?? opponentCard(app, currentId);
-    cards.set(currentId, card);
+    // A saved battle can name a species that a data update has since dropped from the rankings.
+    try {
+      card = cards.get(currentId) ?? opponentCard(app, currentId);
+      cards.set(currentId, card);
+    } catch (err) {
+      cardError = errorText(err);
+    }
   }
   const opp = card?.combatant ?? null;
 
@@ -148,6 +154,7 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
           </div>
         )}
         {card && <OpponentCard card={card} />}
+        {cardError && <p class="error" role="alert">{cardError}</p>}
 
         {whoIsIn.length > 0 && members && (
           <section class="hint" aria-label="Who's in?">
