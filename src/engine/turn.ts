@@ -1,9 +1,9 @@
-import type { MoveBuffs, StatPair } from '../data/types';
+import type { FormChange, Move, MoveBuffs, StatPair } from '../data/types';
 import { GameDataError, IllegalActionError } from '../errors';
-import { moveDamage } from './combatant';
+import { formOf, moveDamage, withForm, type Combatant } from './combatant';
 import { MAX_ENERGY, TURN_MS } from './constants';
 import { clampStage } from './damage';
-import { SIDES, other, type BattleState, type QueuedAction, type Side, type SideState } from './state';
+import { SIDES, initialMeter, other, type BattleState, type QueuedAction, type Side, type SideState } from './state';
 
 export type Action = { readonly type: 'fast' } | { readonly type: 'charged'; readonly index: number } | { readonly type: 'wait' };
 
@@ -13,6 +13,8 @@ export type BattleEvent =
   | { readonly kind: 'fast'; readonly turn: number; readonly side: Side; readonly moveId: string; readonly damage: number; readonly energyGained: number }
   | { readonly kind: 'charged'; readonly turn: number; readonly side: Side; readonly moveId: string; readonly damage: number; readonly shielded: boolean }
   | { readonly kind: 'buff'; readonly turn: number; readonly side: Side; readonly stages: StatPair; readonly sourceMoveId: string }
+  | { readonly kind: 'disguise'; readonly turn: number; readonly side: Side; readonly blockedDamage: number; readonly sourceMoveId: string }
+  | { readonly kind: 'formChange'; readonly turn: number; readonly side: Side; readonly from: string; readonly to: string }
   | { readonly kind: 'faint'; readonly turn: number; readonly side: Side };
 
 /** Start a turn: tick both cooldowns down by one turn. */
@@ -48,6 +50,11 @@ function buffDeltas(buffs: MoveBuffs, moveId: string): { opponent: StatPair | nu
   }
 }
 
+/** Whether a rule is Mimikyu's Disguise: it takes an unshielded charged move like a shield. */
+function isDisguise(rule: FormChange | null): boolean {
+  return rule?.trigger === 'charged_move_damage' && rule.effect === 'protect';
+}
+
 /** Resolve a turn given each side's chosen action (null when it cannot or does not act). */
 export function resolveTurn(
   state: BattleState, actions: readonly [Action | null, Action | null], decideShield: ShieldDecider,
@@ -58,6 +65,23 @@ export function resolveTurn(
   const events: BattleEvent[] = [];
   const queue: QueuedAction[] = [...state.queue];
   const cooldowns: [number, number] = [sides[0].cooldownMs, sides[1].cooldownMs];
+  const active = (side: Side): Combatant => withForm(combatants[side], sides[side].formId);
+
+  // PvPoke Pokemon.changeForm and resetMoves (Pokemon.js:2471-2526, 711-750, 880-900): new types and moves,
+  // native stat stages added, buff meters reset, and the changing side's move damage recomputed at current stages.
+  const changeForm = (side: Side, to: string): void => {
+    const from = sides[side].formId;
+    if (from === to) return;
+    const form = formOf(combatants[side], to);
+    const buffs = addStages(sides[side].buffs, form.nativeStatBuffs, rules.maxBuffStages);
+    sides[side] = { ...sides[side], formId: to, buffs, buffMeters: form.chargedMoves.map((m) => initialMeter(m.buffs?.chance)) };
+    const me = active(side);
+    const opp = active(other(side));
+    const dmg = (m: Move): number => moveDamage(me, sides[side].buffs[0], opp, sides[other(side)].buffs[1], m, rules.buffDivisor);
+    const charged = me.chargedMoves.map(dmg);
+    sides[side] = { ...sides[side], lastDamage: { fast: dmg(me.fastMove), charged }, moveOrderBasis: charged };
+    events.push({ kind: 'formChange', turn: state.turn, side, from, to });
+  };
 
   for (const side of SIDES) {
     const action = actions[side];
@@ -68,7 +92,7 @@ export function resolveTurn(
     if (action.type === 'fast') {
       cooldowns[side] += combatants[side].fastMove.cooldownMs;
     } else if (action.type === 'charged') {
-      const move = combatants[side].chargedMoves[action.index];
+      const move = active(side).chargedMoves[action.index];
       if (!move) throw new IllegalActionError(`Side ${side} has no charged move ${action.index}`);
       if (sides[side].energy < move.energy) {
         throw new IllegalActionError(`Side ${side} has ${sides[side].energy} energy, ${move.id} needs ${move.energy}`);
@@ -99,8 +123,8 @@ export function resolveTurn(
   for (const act of turnActions) {
     const me = act.actor;
     const op = other(me);
-    const attacker = combatants[me];
-    const defender = combatants[op];
+    const attacker = active(me);
+    const defender = active(op);
 
     if (act.type === 'fast') {
       if (sides[op].hp < 1) continue;
@@ -132,9 +156,14 @@ export function resolveTurn(
         damage = 1;
         sides[op] = { ...sides[op], shields: sides[op].shields - 1 };
       }
+      // PvPoke Battle.js:1273-1300: Mimikyu's Disguise takes an unshielded, non-instant charged move like a shield
+      const disguised = !shielded && !move.tags.includes('instant') && isDisguise(formOf(combatants[op], sides[op].formId).formChange);
+      const blockedDamage = damage;
+      if (disguised) damage = 1;
       const hp = Math.max(0, sides[op].hp - damage);
       sides[op] = { ...sides[op], hp, faintSource: hp <= 0 ? 'charged' : sides[op].faintSource };
       events.push({ kind: 'charged', turn: state.turn, side: me, moveId: move.id, damage, shielded });
+      if (disguised) events.push({ kind: 'disguise', turn: state.turn, side: op, blockedDamage, sourceMoveId: move.id });
       chargedUsed++;
 
       const buffs = move.buffs;
@@ -161,6 +190,17 @@ export function resolveTurn(
             events.push({ kind: 'buff', turn: state.turn, side: me, stages: deltas.self, sourceMoveId: move.id });
           }
         }
+      }
+      // PvPoke Battle.js:1547-1580: the attacker changes form after using any charged move (Morpeko)
+      const attackerRule = formOf(combatants[me], sides[me].formId).formChange;
+      if (attackerRule?.trigger === 'charged_move' && attackerRule.alternativeFormId !== null) {
+        changeForm(me, attackerRule.alternativeFormId);
+      }
+      // PvPoke Battle.js:1621-1633: the defender changes form after an unshielded, non-instant charged move (Mimikyu's bust)
+      const defenderRule = formOf(combatants[op], sides[op].formId).formChange;
+      if (defenderRule?.trigger === 'charged_move_damage' && defenderRule.alternativeFormId !== null
+        && !shielded && !move.tags.includes('instant')) {
+        changeForm(op, defenderRule.alternativeFormId);
       }
     }
   }

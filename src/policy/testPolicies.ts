@@ -1,5 +1,5 @@
 import type { BattleState, Side } from '../engine/state';
-import { other } from '../engine/state';
+import { activeCombatant, other } from '../engine/state';
 import type { PolicyDecision, Policy } from './types';
 
 /** Uses only fast moves and never shields. */
@@ -20,7 +20,7 @@ export class GreedyPolicy implements Policy {
   /** Choose the first affordable charged move, else the fast move. */
   chooseAction(state: BattleState, me: Side): PolicyDecision {
     const energy = state.sides[me].energy;
-    const index = state.combatants[me].chargedMoves.findIndex((m) => energy >= m.energy);
+    const index = activeCombatant(state, me).chargedMoves.findIndex((m) => energy >= m.energy);
     return { action: index >= 0 ? { type: 'charged', index } : { type: 'fast' } };
   }
 
@@ -44,7 +44,7 @@ export class ScriptedPolicy implements Policy {
 
   /** The script entry PvPoke acts on for this side and turn, or undefined when none applies. */
   private entryFor(state: BattleState, side: Side): ScriptedCharged | undefined {
-    const moveCount = state.combatants[side].chargedMoves.length;
+    const moveCount = activeCombatant(state, side).chargedMoves.length;
     // PvPoke Battle.getTurnAction (Battle.js:740-760) scans every action and keeps the last match;
     // entries whose index exceeds the moveset are skipped, an unaffordable last match falls back to a fast move.
     let entry: ScriptedCharged | undefined;
@@ -58,7 +58,7 @@ export class ScriptedPolicy implements Policy {
   chooseAction(state: BattleState, me: Side): PolicyDecision {
     const entry = this.entryFor(state, me);
     if (!entry) return { action: { type: 'fast' } };
-    const move = state.combatants[me].chargedMoves[entry.index]!;
+    const move = activeCombatant(state, me).chargedMoves[entry.index]!;
     return { action: state.sides[me].energy >= move.energy ? { type: 'charged', index: entry.index } : { type: 'fast' } };
   }
 
