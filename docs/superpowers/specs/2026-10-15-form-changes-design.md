@@ -69,7 +69,8 @@ PvPoke switches Morpeko to Hangry once and leaves it there: `morpeko_hangry` has
     readonly formChange: FormChange | null;
   }
   ```
-  `Combatant` gains `startFormId: string` and `forms: ReadonlyMap<string, Form>`. Stats, IVs, level, CP and fast move stay on `Combatant` and are shared by all forms.
+  `Combatant` gains `types` (the start form's types; `moveDamage` reads `Combatant.types` instead of `species.types`), `startFormId: string` and `forms: ReadonlyMap<string, Form>`. Stats, IVs, level, CP and fast move stay on `Combatant` and are shared by all forms.
+- `withForm(c, formId): Combatant` returns the combatant as it is in that form (types and charged moves from the form, everything else unchanged; the same object for the start form). The state helper `activeCombatant(state, side)` applies it to the side's `formId`; the engine and policy read combatants through it.
 - `forms` holds every form reachable from the species by following `alternativeFormId`.
 - Form-specific move swaps come from an explicit table mirroring PvPoke `Pokemon.changeForm` (Pokemon.js:2504-2511): entering `morpeko_full_belly` maps `AURA_WHEEL_DARK → AURA_WHEEL_ELECTRIC`; entering `morpeko_hangry` maps `AURA_WHEEL_ELECTRIC → AURA_WHEEL_DARK`. Moves not in the table are unchanged.
 - `PvPoke formChange` replacement rule (Pokemon.js:2482-2484): a form with `formChange: null` inherits the previous form's rule. After corrections no reachable form for Mimikyu or Morpeko has a null rule, so `Form.formChange` is stored resolved and non-null for supported species.
@@ -96,8 +97,8 @@ PvPoke switches Morpeko to Hangry once and leaves it there: `morpeko_hangry` has
 ### 4.3 Charged move resolution order (PvPoke Battle.js)
 1. Compute damage with current forms and stages.
 2. Ask the defender's shield decider (unchanged).
-3. **Disguise** (Battle.js:1273-1300): if not shielded, the move is not tagged `instant`, and the defender's active form has trigger `charged_move_damage` + effect `protect`: record the would-be damage, set damage to 1, emit `disguise`.
-4. Apply damage; emit `charged`.
+3. **Disguise** (Battle.js:1273-1300): if not shielded, the move is not tagged `instant`, and the defender's active form has trigger `charged_move_damage` + effect `protect`: record the would-be damage and set damage to 1.
+4. Apply damage; emit `charged`, then `disguise` if step 3 applied (so a trace reads "hit for 1, disguise blocked N").
 5. Apply the move's buffs (unchanged).
 6. **Attacker form change** (Battle.js:1547-1580): if the attacker's active rule is `charged_move`, switch to its `alternativeFormId`.
 7. **Defender form change** (Battle.js:1621-1633): if the defender's active rule is `charged_move_damage`, the move was not shielded and not `instant`, switch to its `alternativeFormId`.
