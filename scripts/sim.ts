@@ -29,7 +29,8 @@ export function formatTimeline(result: MatchupResult, names: [string, string], m
   return lines.join('\n');
 }
 
-function arg(flag: string, count: number): string[] | undefined {
+/** Return the `count` values after `flag` on the command line, or undefined if the flag is absent. */
+export function arg(flag: string, count: number): string[] | undefined {
   const i = process.argv.indexOf(flag);
   return i === -1 ? undefined : process.argv.slice(i + 1, i + 1 + count);
 }
@@ -43,7 +44,8 @@ function parsePolicy(values: string[] | undefined): PolicyName {
   return name as PolicyName;
 }
 
-function parseShields(values: string[] | undefined): [number, number] {
+/** Parse a `--shields A B` pair (integers 0-2), defaulting to 1 1. */
+export function parseShields(values: string[] | undefined): [number, number] {
   if (values === undefined) return [1, 1];
   const parsed = values.map((v) => (/^\d+$/.test(v) ? Number(v) : NaN));
   if (parsed.length !== 2 || parsed.some((n) => !Number.isInteger(n) || n < 0 || n > 2)) {

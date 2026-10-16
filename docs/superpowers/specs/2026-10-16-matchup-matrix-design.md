@@ -1,7 +1,7 @@
 # Matchup Matrix — Design Spec (Sub-project 2)
 
 Date: 2026-10-16
-Status: Approved for planning
+Status: Implemented (2026-10-16)
 
 ## 1. Context and intent
 
@@ -153,3 +153,10 @@ This CLI is only for checking output. The real view is sub-project 3.
 ## 8. Docs
 - README: what the matrix is, `npm run gen-matrix`, `npm run matrix`, the roster file format, and a "Meta gaps" note (Cramorant, Aegislash, megas excluded; see `excluded` in the data file).
 - Roadmap note in `2026-10-15-battle-engine-design.md` §1: sub-project 2 became the matchup matrix (this spec), and a PvPoke ranking-algorithm port is deferred.
+
+## 9. Implementation notes
+- `simulateCell` takes an optional `{ maxTurns }`, used to test the turn-limit error.
+- The pure batch logic (`buildMatrixFile`, `mirrorMismatches`) is in `src/matrix/batch.ts`; `scripts/gen-matrix.ts` only does I/O.
+- `parseRoster` (in `teamMatrix.ts`) validates roster JSON shape for the CLI and, later, the web app.
+- `gen-matrix --size N` with N ≠ 150 writes to `.cache/matrix-1500-<N>.json` and writes no report, so the committed file is never overwritten by a quick run.
+- Mirror check result: see `reports/matrix-report.md`. The first run found 61 cells off by more than 1 (out of about 102k comparisons). 46 are mirror matches (a Pokémon against itself) and 15 are near-mirrors (e.g. Snorlax vs Shadow Snorlax). All 61 were re-run through PvPoke in both slot orders, and PvPoke gives exactly our ratings in both orders. So the asymmetry is PvPoke's own slot-order tie-breaking, not an engine bug. Consumers must not assume `ratings[a][b][sa][sb] + ratings[b][a][sb][sa] = 1000`.

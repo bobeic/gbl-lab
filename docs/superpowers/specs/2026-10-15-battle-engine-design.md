@@ -20,7 +20,7 @@ Status: Implemented (2026-10-15)
 
 ### Overall roadmap (each sub-project gets its own spec → plan → build)
 1. **Battle engine + data + validation** — this spec.
-2. **Meta rankings** — offline batch producing ranking data artifacts.
+2. **Meta rankings** — offline batch producing ranking data artifacts. Built as the matchup matrix (`2026-10-16-matchup-matrix-design.md`); a port of PvPoke's ranking algorithm is deferred.
 3. **Team builder web app** — roster, best teams, threats/coverage, team diff, wanted list with target IVs.
 4. **Later** — event alignment, play-vs-agent, coaching (battle replay with alternative decisions).
 

@@ -1,6 +1,6 @@
 # gbl-lab
 
-Pokémon GO Great League lab: a battle engine that matches PvPoke's simulator, and (later) a team builder and battle agent.
+Pokémon GO Great League lab: a battle engine that matches PvPoke's simulator, a meta matchup matrix, and (later) a team builder and battle agent.
 
 ## What it does
 Simulates a 1v1 Great League matchup turn by turn (shields, energy, buffs, charged-move timing) and reports PvPoke-style battle ratings plus a timeline. It also ranks a species' IV combinations by stat product (`rankIvs` in `src/stats/ivRank.ts`), and those ranks match PvPoke's, including its default IV floors and species level floors.
@@ -12,6 +12,17 @@ Choose with `--policy`:
 - `pvpoke` (default): a port of PvPoke's default-mode decision logic (move timing, bait, shielding). Matches PvPoke's own results.
 - `greedy`: throws the first affordable charged move in slot order and always shields. A simple baseline.
 - `fast`: only ever uses the fast move and never shields. Used for engine validation.
+
+### Matchup matrix
+- `data/matrix-1500.json` (committed) holds the 1v1 battle rating of every meta Pokémon against every other in all 9 shield scenarios. The meta is the top 150 Pokémon in PvPoke's Great League rankings that the engine supports, with PvPoke's ranking movesets and default IVs. `ratings[a][b][aShields][bShields]` is a's rating (0–1000, 500 = even).
+- `npm run gen-matrix` rebuilds it (about a minute) and writes `reports/matrix-report.md`, which lists exclusions, timing and a mirror check. `--size N` does a quick run into `.cache/` instead. Rerun it after `npm run update-data` or any engine change; `tests/matrixCommitted.test.ts` fails while it is stale.
+- `npm run matrix -- <speciesId> [--shields A B]` prints a meta Pokémon's averages, wins/losses and best/worst matchups.
+- `npm run matrix -- --roster my-team.json` does the same for your own Pokémon, simulated on demand (`teamMatrix` in `src/matrix/`). The roster file is a JSON array:
+  ```json
+  [{ "speciesId": "azumarill", "fastMoveId": "BUBBLE", "chargedMoveIds": ["ICE_BEAM", "PLAY_ROUGH"],
+     "ivs": { "atk": 0, "def": 15, "hp": 15 }, "label": "My Azumarill" }]
+  ```
+  `ivs`, `level` and `label` are optional; defaults are PvPoke's default IVs and the highest level under 1500 CP.
 
 ## Run locally
 - `npm install`
@@ -41,12 +52,14 @@ From the latest `npm run compare-oracle` (`reports/oracle-report.md`):
 - Winner agreement: 100.00% (target >= 98%)
 - Median rating difference: 0 (target <= 25)
 - Form changes (`tests/fixtures/form-change-oracle.json`): 1,800 Mimikyu/Morpeko cases against corrected PvPoke and 891 Mimikyu cases against unmodified PvPoke, all exact.
+- Matchup matrix: `simulateCell` reproduces every one of the 15,150 oracle cases exactly (`tests/matrixCell.test.ts`).
 
 ## Known exclusions
 - Mimikyu (Disguise) and Morpeko (Hunger Switch) are supported. Morpeko switches form on every charged move, as in the game. PvPoke leaves it in Hangry, so Morpeko results differ from pvpoke.com (ADR 0003).
 - Aegislash, Cramorant and other form changers are not supported; the engine rejects them with a typed error.
 - Known differences from the real game, fixed and open, are listed in `docs/known-game-differences.md`.
 - Mega Pokémon are not supported.
+- Meta gaps: unsupported Pokémon (Cramorant, Aegislash, megas and others) are missing from the matrix meta. The `excluded` list in `data/matrix-1500.json` and `reports/matrix-report.md` names them.
 - Moves whose damage is a percentage of max HP (`percentMaxHP`) are not supported.
 - The CLI has no `--ivs` flag yet (spec section 8); combatants use each species' default Great League IVs.
 

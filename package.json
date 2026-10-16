@@ -15,7 +15,8 @@
     "gen-iv-oracle": "tsx scripts/gen-iv-oracle.ts",
     "compare-oracle": "tsx scripts/compare-oracle.ts",
     "sim": "tsx scripts/sim.ts",
-    "gen-matrix": "tsx scripts/gen-matrix.ts"
+    "gen-matrix": "tsx scripts/gen-matrix.ts",
+    "matrix": "tsx scripts/matrix.ts"
   },
   "devDependencies": {
     "@types/node": "22.10.2",
