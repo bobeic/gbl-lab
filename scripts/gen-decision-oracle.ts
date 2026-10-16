@@ -1,14 +1,12 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { loadDefaultGameData } from '../src/data/node';
-import type { PvpokeHarness, PvpokeShieldDecision, PvpokeSideSnapshot, ShieldTraceRequest } from './oracle/harness';
+import type { PvpokeShieldDecision, PvpokeSideSnapshot, ShieldTraceRequest } from './oracle/harness';
 import { metaSpecies } from './oracle/meta';
+import { loadPvpoke } from './oracle/load';
 
-const require = createRequire(import.meta.url);
-const { createPvpoke } = require('./oracle/pvpokeHarness.cjs') as { createPvpoke: (dir: string) => PvpokeHarness };
 
 const upstream = readFileSync('data/UPSTREAM', 'utf8').trim();
-const pvpoke = createPvpoke('.cache/pvpoke/src');
+const pvpoke = loadPvpoke();
 const meta = metaSpecies(loadDefaultGameData(), 40);
 
 const SHIELD_SETUPS: readonly Pick<ShieldTraceRequest, 'shields' | 'baitShields'>[] = [

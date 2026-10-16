@@ -1,12 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import type { IvCombinationsRequest, PvpokeHarness, PvpokeIvCombination } from './oracle/harness';
+import type { IvCombinationsRequest, PvpokeIvCombination } from './oracle/harness';
+import { loadPvpoke } from './oracle/load';
 
-const require = createRequire(import.meta.url);
-const { createPvpoke } = require('./oracle/pvpokeHarness.cjs') as { createPvpoke: (dir: string) => PvpokeHarness };
 
 const upstream = readFileSync('data/UPSTREAM', 'utf8').trim();
-const pvpoke = createPvpoke('.cache/pvpoke/src');
+const pvpoke = loadPvpoke();
 
 const GL = (speciesId: string, extra: Partial<IvCombinationsRequest> = {}): IvCombinationsRequest => ({ speciesId, cap: 1500, ...extra });
 

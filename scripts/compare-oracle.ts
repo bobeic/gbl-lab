@@ -1,12 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { loadDefaultGameData } from '../src/data/node';
 import type { GameData } from '../src/data/types';
 import { buildCombatant, type Combatant } from '../src/engine/combatant';
 import { PvPokeLikePolicy } from '../src/policy/pvpoke';
 import { runMatchup, type MatchupResult } from '../src/sim/runMatchup';
-import type { OracleMon, PvpokeHarness } from './oracle/harness';
+import type { OracleMon } from './oracle/harness';
+import { loadPvpoke } from './oracle/load';
 
 export interface OracleDiff {
   a: OracleMon; b: OracleMon; shields: [number, number];
@@ -59,9 +59,7 @@ export function compareOracle(): OracleSummary {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const summary = compareOracle();
-  const require = createRequire(import.meta.url);
-  const { createPvpoke } = require('./oracle/pvpokeHarness.cjs') as { createPvpoke: (d: string) => PvpokeHarness };
-  const pvpoke = createPvpoke('.cache/pvpoke/src');
+  const pvpoke = loadPvpoke();
   const gd = loadDefaultGameData();
   const lines = [
     '# Oracle report', '',

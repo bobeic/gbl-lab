@@ -1,6 +1,6 @@
 import type { ChargedMove, FastMove } from '../../data/types';
-import type { Combatant } from '../../engine/combatant';
-import { createBattle, other, type BattleState, type Side, type SideState } from '../../engine/state';
+import type { Combatant, Form } from '../../engine/combatant';
+import { activeCombatant, activeForm, other, type BattleState, type Side, type SideState } from '../../engine/state';
 import { PolicyStateError } from '../../errors';
 import { orderChargedMoves } from './moveMeta';
 
@@ -9,6 +9,8 @@ export interface PokeView {
   readonly side: Side;
   readonly c: Combatant;
   readonly s: SideState;
+  /** The side's active form, including its form-change rule (PvPoke activeFormId / formChange). */
+  readonly form: Form;
   readonly fastMove: FastMove;
   /** PvPoke this.chargedMoves in slot order: the same move objects as activeChargedMoves (incl. resetMoves rewrites). */
   readonly chargedMoves: readonly ChargedMove[];
@@ -24,12 +26,11 @@ export interface PokeView {
   dpeOf(move: ChargedMove): number;
 }
 
-/** Build one side's view; `start` is the battle's start-of-battle state, where PvPoke's resetMoves runs. */
-function buildView(state: BattleState, start: BattleState, side: Side): PokeView {
-  const c = state.combatants[side];
+/** Build one side's view from its active form and its move-order basis. */
+function buildView(state: BattleState, side: Side): PokeView {
+  const c = activeCombatant(state, side);
   const s = state.sides[side];
-  const startDamage = start.sides[side].lastDamage.charged;
-  const order = orderChargedMoves(c, start.sides[side], state.rules.buffDivisor);
+  const order = orderChargedMoves(c, s.moveOrderBasis, state.rules.buffDivisor);
   const chargedMoves = c.chargedMoves.map((m) => {
     const found = order.active.find((a) => a.id === m.id);
     if (!found) throw new PolicyStateError(`${c.species.id}: ${m.id} missing from its ordered charged moves`);
@@ -52,24 +53,22 @@ function buildView(state: BattleState, start: BattleState, side: Side): PokeView
     return damage;
   };
 
-  // PvPoke Pokemon.js:842-846 overwrites every active move's dpe with damage / energy at Battle.start;
-  // nothing recomputes it during a simulate-mode battle, so later move.damage changes do not reach it.
+  // PvPoke Pokemon.js:842-846 overwrites every active move's dpe with damage / energy whenever resetMoves runs:
+  // at Battle.start and at each form change. Nothing else recomputes it in simulate mode.
   const dpeOf = (move: ChargedMove): number => {
-    const damage = startDamage[indexOf(move)];
-    if (damage === undefined) throw new PolicyStateError(`${c.species.id}: no start damage for ${move.id}`);
+    const damage = s.moveOrderBasis[indexOf(move)];
+    if (damage === undefined) throw new PolicyStateError(`${c.species.id}: no move-order damage for ${move.id}`);
     return damage / move.energy;
   };
 
   return {
-    side, c, s, fastMove: c.fastMove, chargedMoves,
+    side, c, s, form: activeForm(state, side), fastMove: c.fastMove, chargedMoves,
     activeChargedMoves: order.active, bestChargedMove: order.best, fastestChargedMove: order.fastest,
     indexOf, damageOf, dpeOf,
   };
 }
 
-/** Build the PvPoke-shaped views for both sides of a battle. */
+/** Build the PvPoke-shaped views for both sides of a battle, in their active forms. */
 export function views(state: BattleState, me: Side): { poke: PokeView; opponent: PokeView } {
-  // PvPoke Battle.start (Battle.js:238-245) runs resetMoves with native buffs; createBattle reproduces that state.
-  const start = createBattle(state.combatants, { shields: [0, 0] }, state.rules);
-  return { poke: buildView(state, start, me), opponent: buildView(state, start, other(me)) };
+  return { poke: buildView(state, me), opponent: buildView(state, other(me)) };
 }
