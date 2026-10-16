@@ -44,7 +44,8 @@ export function parseRoster(json: unknown): RosterEntry[] {
   });
 }
 
-function buildRosterEntry(gd: GameData, entry: RosterEntry, index: number): Combatant {
+/** Build one roster Pokémon, wrapping any failure in a RosterError that names the entry. */
+export function buildRosterCombatant(gd: GameData, entry: RosterEntry, index: number): Combatant {
   try {
     return buildCombatant(gd, {
       speciesId: entry.speciesId, fastMoveId: entry.fastMoveId, chargedMoveIds: entry.chargedMoveIds, ivs: entry.ivs, level: entry.level,
@@ -58,7 +59,7 @@ function buildRosterEntry(gd: GameData, entry: RosterEntry, index: number): Comb
 /** Simulate each roster Pokémon against every meta entry in all 9 shield scenarios. */
 export function teamMatrix(gd: GameData, roster: readonly RosterEntry[], meta: readonly MetaEntry[]): MatrixRow[] {
   // Build everything first so a bad entry fails before any simulation runs.
-  const mine = roster.map((entry, i) => buildRosterEntry(gd, entry, i));
+  const mine = roster.map((entry, i) => buildRosterCombatant(gd, entry, i));
   const opponents = meta.map((m) => metaCombatant(gd, m));
   return mine.map((c, i) => ({
     id: roster[i]!.label ?? roster[i]!.speciesId,

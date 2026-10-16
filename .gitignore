@@ -1,3 +1,6 @@
 node_modules/
 .cache/
 reports/
+app/public/app-data.json
+.superpowers/
+dist/

@@ -1,6 +1,6 @@
 # gbl-lab
 
-Pokémon GO Great League lab: a battle engine that matches PvPoke's simulator, a meta matchup matrix, and (later) a team builder and battle agent.
+Pokémon GO Great League lab: a battle engine that matches PvPoke's simulator, a meta matchup matrix, a phone-first battle companion web app, and (later) a battle agent.
 
 ## What it does
 Simulates a 1v1 Great League matchup turn by turn (shields, energy, buffs, charged-move timing) and reports PvPoke-style battle ratings plus a timeline. It also ranks a species' IV combinations by stat product (`rankIvs` in `src/stats/ivRank.ts`), and those ranks match PvPoke's, including its default IV floors and species level floors.
@@ -23,6 +23,21 @@ Choose with `--policy`:
      "ivs": { "atk": 0, "def": 15, "hp": 15 }, "label": "My Azumarill" }]
   ```
   `ivs`, `level` and `label` are optional; defaults are PvPoke's default IVs and the highest level under 1500 CP.
+
+## Battle companion
+A phone-first web app for use mid-battle (`app/`, logic in `src/companion/`). Type the opponent's name to get their likely moves (PvPoke's ranking moveset) with fast-move counts (e.g. `4-4-4`), your team ranked against them at the current shields, and a stay/switch and shield suggestion that you confirm with one tap. One-tap buttons log shields, faints and switches, with Undo. Your roster and the battle in progress are saved in the browser, so switching to Pokémon GO and back loses nothing. It works offline once loaded and can be added to the iPhone home screen.
+
+- Ratings assume a fresh 1v1 at the current shields: **HP and energy aren't tracked**.
+- Only species in PvPoke's Great League rankings are searchable. Opponents the engine can't simulate (e.g. Cramorant) still show moves and counts, with "Can't simulate" instead of ratings.
+- Team setup takes the same roster JSON as `npm run matrix -- --roster` (import and export on the Team tab).
+
+Run it:
+- `npm run dev` builds `app/public/app-data.json` from `data/` and starts Vite at `http://localhost:5173/gbl-lab/`.
+- `npm run build` writes the static site to `dist/`; `npm run preview` serves that build.
+
+Publish (one-time steps, yours to do):
+1. In the repo's Settings → Pages, set Source to "GitHub Actions".
+2. In the Actions tab, run "Deploy companion to Pages". It only runs when started by hand; it runs the full test suite before deploying. The site is served at `https://<owner>.github.io/gbl-lab/`.
 
 ## Run locally
 - `npm install`
@@ -64,4 +79,4 @@ From the latest `npm run compare-oracle` (`reports/oracle-report.md`):
 - The CLI has no `--ivs` flag yet (spec section 8); combatants use each species' default Great League IVs.
 
 ## Environment variables
-None.
+None, for the CLI, the tests or the web app.
