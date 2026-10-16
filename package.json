@@ -7,7 +7,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && npm run typecheck:browser",
+    "typecheck": "tsc --noEmit && npm run typecheck:browser && npm run typecheck:app",
     "typecheck:browser": "tsc --noEmit -p tsconfig.browser.json",
     "update-data": "tsx scripts/update-data.ts",
     "gen-oracle": "tsx scripts/gen-oracle.ts",
@@ -17,12 +17,22 @@
     "sim": "tsx scripts/sim.ts",
     "gen-matrix": "tsx scripts/gen-matrix.ts",
     "matrix": "tsx scripts/matrix.ts",
-    "gen-app-data": "tsx scripts/gen-app-data.ts"
+    "gen-app-data": "tsx scripts/gen-app-data.ts",
+    "dev": "npm run gen-app-data && vite",
+    "build": "npm run gen-app-data && vite build",
+    "preview": "vite preview",
+    "typecheck:app": "tsc --noEmit -p tsconfig.app.json"
   },
   "devDependencies": {
+    "@preact/preset-vite": "2.9.4",
+    "@testing-library/preact": "3.2.4",
     "@types/node": "22.10.2",
+    "jsdom": "25.0.1",
+    "preact": "10.29.8",
     "tsx": "4.19.2",
     "typescript": "5.6.3",
+    "vite": "5.4.20",
+    "vite-plugin-pwa": "0.21.2",
     "vitest": "2.1.8"
   }
 }
