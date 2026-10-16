@@ -2,3 +2,5 @@
 export * from './meta';
 export * from './cell';
 export * from './teamMatrix';
+export * from './summary';
+export * from './matrixData';
