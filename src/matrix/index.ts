@@ -4,3 +4,4 @@ export * from './cell';
 export * from './teamMatrix';
 export * from './summary';
 export * from './matrixData';
+export * from './batch';
