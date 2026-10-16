@@ -82,6 +82,7 @@ describe('parseRoster', () => {
     ['chargedMoveIds not a string array', [{ speciesId: 'azumarill', fastMoveId: 'BUBBLE', chargedMoveIds: 'ICE_BEAM' }], /Roster entry 0: chargedMoveIds/],
     ['ivs missing a stat', [{ ...fromRankings('azumarill'), ivs: { atk: 1, def: 2 } }], /Roster entry 0: ivs/],
     ['a non-numeric level', [{ ...fromRankings('azumarill'), level: '20' }], /Roster entry 0: level/],
+    ['a misspelt optional field', [{ ...fromRankings('azumarill'), IVs: { atk: 0, def: 15, hp: 15 } }], /Roster entry 0: unknown field "IVs"/],
   ])('rejects %s', (_name, json, message) => {
     expect(() => parseRoster(json)).toThrow(RosterError);
     expect(() => parseRoster(json)).toThrow(message);

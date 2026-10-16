@@ -18,7 +18,8 @@ export interface RosterEntry {
   readonly label?: string;
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const ROSTER_FIELDS: ReadonlySet<string> = new Set(['speciesId', 'fastMoveId', 'chargedMoveIds', 'ivs', 'level', 'label']);
+const isRecord =(v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((s) => typeof s === 'string');
 
 /** Check that parsed JSON has the shape of a roster; building the Pokémon is teamMatrix's job. */
@@ -29,6 +30,9 @@ export function parseRoster(json: unknown): RosterEntry[] {
       throw new RosterError(`Roster entry ${i}: ${field} must be ${expected}`);
     };
     if (!isRecord(v)) return bad('the entry', 'an object');
+    // A misspelt optional field (e.g. "IVs") would otherwise silently fall back to default IVs or level.
+    const unknown = Object.keys(v).find((k) => !ROSTER_FIELDS.has(k));
+    if (unknown !== undefined) throw new RosterError(`Roster entry ${i}: unknown field "${unknown}" (allowed: ${[...ROSTER_FIELDS].join(', ')})`);
     if (typeof v.speciesId !== 'string' || v.speciesId === '') bad('speciesId', 'a non-empty string');
     if (typeof v.fastMoveId !== 'string' || v.fastMoveId === '') bad('fastMoveId', 'a non-empty string');
     if (!isStringArray(v.chargedMoveIds)) bad('chargedMoveIds', 'an array of move ids');
