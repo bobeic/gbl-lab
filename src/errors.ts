@@ -37,3 +37,8 @@ export class TurnLimitError extends Error {
 export class PolicyStateError extends Error {
   override name = 'PolicyStateError';
 }
+
+/** Raised for a roster entry that is malformed or can't be built (unknown species, illegal move, bad IVs, over the CP cap, unsupported). */
+export class RosterError extends Error {
+  override name = 'RosterError';
+}
