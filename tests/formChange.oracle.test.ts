@@ -7,9 +7,9 @@ describe('form changes match the PvPoke oracle (form-changes spec §6.1)', () =>
     upstream: string; corrected: OracleCase[]; unmodified: OracleCase[];
   };
 
-  it('covers Mimikyu and Morpeko against the top 100 at all nine shield pairings', () => {
-    expect(fixture.corrected.length).toBe(2 * 100 * 9);
-    expect(fixture.unmodified.length).toBe(99 * 9);
+  it('covers Mimikyu, Morpeko and Cramorant against the top 100 at all nine shield pairings', () => {
+    expect(fixture.corrected.length).toBe(3 * 100 * 9);
+    expect(fixture.unmodified.length).toBe(2 * 99 * 9);
   });
 
   it('was generated from the vendored PvPoke commit', () => {
@@ -21,7 +21,7 @@ describe('form changes match the PvPoke oracle (form-changes spec §6.1)', () =>
     expect(summary.exactMatches).toBe(summary.total);
   });
 
-  it('matches unmodified PvPoke exactly for Mimikyu, so the corrections touch only Morpeko', () => {
+  it('matches unmodified PvPoke exactly for Mimikyu and Cramorant, so the corrections touch only Morpeko', () => {
     const summary = compareCases(fixture.unmodified);
     expect(summary.exactMatches).toBe(summary.total);
   });

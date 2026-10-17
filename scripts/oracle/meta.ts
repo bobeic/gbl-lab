@@ -7,7 +7,7 @@ import type { OracleMon } from './harness';
 export function metaSpecies(gd: GameData, count: number): OracleMon[] {
   const rankings: RankingRow[] = JSON.parse(readFileSync('data/rankings-1500.json', 'utf8'));
   const meta = buildMeta(gd, rankings, count);
-  // Unsupported (Aegislash, Cramorant, megas, etc.) are excluded from the oracle set by design (engine spec §10).
+  // Unsupported (Aegislash, megas, etc.) are excluded from the oracle set by design (engine spec §10).
   for (const e of meta.excluded) console.error(`excluded ${e.speciesId}: ${e.reason}`);
   return meta.entries.map((e) => ({ speciesId: e.speciesId, moveset: [...e.moveset] }));
 }

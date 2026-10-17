@@ -106,9 +106,13 @@ const formChange = {
   corrected: [
     ...formChangeCases(pvpoke, top100, 'mimikyu', top100),
     ...formChangeCases(pvpoke, top100, 'morpeko_full_belly', top100),
+    ...formChangeCases(pvpoke, top100, 'cramorant', top100), // includes the Cramorant mirror
   ],
-  // Unmodified PvPoke must agree for Mimikyu (excluding Morpeko opponents): the corrections touch only Morpeko.
-  unmodified: formChangeCases(unmodified, top100, 'mimikyu', top100.filter((m) => m.speciesId !== 'morpeko_full_belly')),
+  // Unmodified PvPoke must agree for Mimikyu and Cramorant (excluding Morpeko opponents): the corrections touch only Morpeko.
+  unmodified: [
+    ...formChangeCases(unmodified, top100, 'mimikyu', top100.filter((m) => m.speciesId !== 'morpeko_full_belly')),
+    ...formChangeCases(unmodified, top100, 'cramorant', top100.filter((m) => m.speciesId !== 'morpeko_full_belly')),
+  ],
 };
 writeFileSync('tests/fixtures/form-change-oracle.json', JSON.stringify(formChange));
 console.log(`form-change-oracle.json: ${formChange.corrected.length} corrected + ${formChange.unmodified.length} unmodified cases`);

@@ -36,8 +36,8 @@ describe('TeamScreen', () => {
 
   it('shows an inline error and keeps the form when saving an unsupported Pokémon', () => {
     const onChange = setup();
-    fireEvent.input(screen.getByPlaceholderText('Search Pokémon…'), { target: { value: 'cramorant' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Cramorant' }));
+    fireEvent.input(screen.getByPlaceholderText('Search Pokémon…'), { target: { value: 'aegis' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aegislash (Blade)' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save Pokémon' }));
     expect(screen.getByRole('alert').textContent).toMatch(/UnsupportedPokemonError/);
     expect(screen.getByRole('button', { name: 'Save Pokémon' })).toBeTruthy();
@@ -47,10 +47,10 @@ describe('TeamScreen', () => {
   it('rejects importing an unsupported Pokémon and leaves the roster alone', () => {
     const onChange = setup();
     fireEvent.input(screen.getByLabelText('Import roster JSON'), {
-      target: { value: '[{"speciesId":"cramorant","fastMoveId":"PECK","chargedMoveIds":["DIVE","FLY"]}]' },
+      target: { value: '[{"speciesId":"aegislash_shield","fastMoveId":"AEGISLASH_CHARGE_PSYCHO_CUT","chargedMoveIds":["SHADOW_BALL","GYRO_BALL"]}]' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Import' }));
-    expect(screen.getByRole('alert').textContent).toMatch(/Cramorant|UnsupportedPokemonError/);
+    expect(screen.getByRole('alert').textContent).toMatch(/Aegislash|UnsupportedPokemonError/);
     expect(onChange).not.toHaveBeenCalled();
   });
 

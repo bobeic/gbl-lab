@@ -23,6 +23,8 @@ export interface Form {
   readonly nativeStatBuffs: StatPair;
   /** The rule in force in this form; a form without its own keeps the previous one (PvPoke Pokemon.js:2482-2484). */
   readonly formChange: FormChange | null;
+  /** The move this form fires back when hit by an unshielded charged move (Cramorant's Gulp Missile), else null. */
+  readonly gulpMissile: ChargedMove | null;
 }
 
 export interface Combatant {
@@ -79,6 +81,12 @@ const FORM_MOVE_SWAPS: Readonly<Record<string, Readonly<Record<string, string>>>
   morpeko_hangry: { AURA_WHEEL_ELECTRIC: 'AURA_WHEEL_DARK' },
 };
 
+/** Gulp Missile per prey form, as PvPoke Battle.useMove hard-codes it (Battle.js:1583-1617). */
+const GULP_MISSILES: Readonly<Record<string, string>> = {
+  cramorant_gulping: 'GULP_MISSILE_ARROKUDA',
+  cramorant_gorging: 'GULP_MISSILE_PIKACHU',
+};
+
 function swapMoves(gd: GameData, formId: string, moves: readonly ChargedMove[]): ChargedMove[] {
   const swaps = FORM_MOVE_SWAPS[formId] ?? {};
   return moves.map((m) => {
@@ -90,36 +98,47 @@ function swapMoves(gd: GameData, formId: string, moves: readonly ChargedMove[]):
   });
 }
 
-/** Whether the engine models a rule: Morpeko's switch, Mimikyu's Disguise, or no further change. */
-function isSupportedRule(rule: FormChange): boolean {
+/** Whether the engine models a rule: Morpeko's switch, Mimikyu's Disguise, Cramorant's Gulp Missile, or no further change. */
+function isSupportedRule(rule: FormChange, startId: string): boolean {
   if (rule.trigger === 'none') return true;
-  if (rule.trigger === 'charged_move') return rule.moveId === 'ANY' && rule.moveIds === null && rule.alternativeFormId !== 'variable';
+  if (rule.trigger === 'charged_move') {
+    if (rule.moveId === 'ANY' && rule.moveIds === null && rule.alternativeFormId !== 'variable') return true;
+    // PvPoke Battle.js:1547-1575: Cramorant catches prey after Dive/Surf ('variable' resolves by HP)
+    if (rule.alternativeFormId === 'variable') return rule.moveIds !== null && startId === 'cramorant';
+    // Gulping/gorging: firing Gulp Missile turns it back into cramorant
+    return rule.moveId !== 'ANY' && rule.moveId !== null && rule.moveIds === null && rule.alternativeFormId === 'cramorant';
+  }
   return rule.trigger === 'charged_move_damage' && rule.effect === 'protect';
 }
 
 /** Follow alternativeFormId from the start form and build every reachable form, rejecting what is not modelled. */
 function buildForms(gd: GameData, start: Species, startMoves: readonly ChargedMove[]): Map<string, Form> {
   const forms = new Map<string, Form>();
-  let species = start;
-  let moves: readonly ChargedMove[] = startMoves;
-  let rule: FormChange | null = start.formChange;
-  for (;;) {
-    if (rule && !isSupportedRule(rule)) {
+  const work: { species: Species; moves: readonly ChargedMove[]; rule: FormChange | null }[] = [{ species: start, moves: startMoves, rule: start.formChange }];
+  for (let item = work.pop(); item; item = work.pop()) {
+    const { species, moves, rule } = item;
+    if (forms.has(species.id)) continue;
+    if (rule && !isSupportedRule(rule, start.id)) {
       throw new UnsupportedPokemonError(`${start.id}: form change (${rule.trigger} -> ${rule.alternativeFormId ?? 'none'}) is not modelled yet`);
     }
     // PvPoke recomputes stats for a form with different base stats (Pokemon.getFormStats); only Aegislash needs that.
     if (species.base.atk !== start.base.atk || species.base.def !== start.base.def || species.base.hp !== start.base.hp) {
       throw new UnsupportedPokemonError(`${start.id}: form ${species.id} has different base stats; not modelled yet`);
     }
-    forms.set(species.id, { id: species.id, types: species.types, chargedMoves: moves, nativeStatBuffs: species.nativeStatBuffs, formChange: rule });
-    const nextId = rule && rule.trigger !== 'none' ? rule.alternativeFormId : null;
-    if (nextId === null || forms.has(nextId)) return forms;
-    const next = gd.species.get(nextId);
-    if (!next) throw new GameDataError(`${species.id}: form change target ${nextId} is not a known species`);
-    species = next;
-    moves = swapMoves(gd, nextId, moves);
-    rule = next.formChange ?? rule;
+    const gulpId = GULP_MISSILES[species.id];
+    const gulp = gulpId === undefined ? null : gd.moves.get(gulpId);
+    if (gulp === undefined || (gulp !== null && gulp.kind !== 'charged')) throw new GameDataError(`${species.id}: Gulp Missile ${gulpId} is not a charged move`);
+    forms.set(species.id, { id: species.id, types: species.types, chargedMoves: moves, nativeStatBuffs: species.nativeStatBuffs, formChange: rule, gulpMissile: gulp });
+    const target = rule && rule.trigger !== 'none' ? rule.alternativeFormId : null;
+    const nextIds = target === 'variable' ? ['cramorant_gulping', 'cramorant_gorging'] : target === null ? [] : [target];
+    for (const nextId of nextIds) {
+      if (forms.has(nextId)) continue;
+      const next = gd.species.get(nextId);
+      if (!next) throw new GameDataError(`${species.id}: form change target ${nextId} is not a known species`);
+      work.push({ species: next, moves: swapMoves(gd, nextId, moves), rule: next.formChange ?? rule });
+    }
   }
+  return forms;
 }
 
 function resolveMove(gd: GameData, species: Species, id: string, kind: 'fast'): FastMove;
@@ -214,6 +233,8 @@ export function effectiveStat(c: Combatant, which: 'atk' | 'def', stage: number,
 export function moveDamage(
   attacker: Combatant, attackerAtkStage: number, defender: Combatant, defenderDefStage: number, move: Move, divisor: number,
 ): number {
+  // PvPoke DamageCalculator.js:71: a share of the target's max HP (Gulp Missile)
+  if (move.damageMethod === 'percentMaxHP') return Math.floor((move.power / 100) * defender.stats.hp) + 1;
   const stab = attacker.types.includes(move.type) ? STAB_MULTIPLIER : 1;
   return calcDamage(
     move.power,

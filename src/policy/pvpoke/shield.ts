@@ -86,7 +86,22 @@ export function wouldShieldViews(
     useShield = true;
   }
 
-  // PvPoke ActionLogic.js:1238-1257 skipped: Aegislash and Cramorant form branches (form changes unsupported).
+  // PvPoke ActionLogic.js:1238-1242 skipped: Aegislash shield form (Aegislash unsupported).
+
+  // PvPoke ActionLogic.js:1244-1248: save shields in Cramorant gulping or gorging form to trigger Gulp Missile against weak moves
+  if ((defender.form.id === 'cramorant_gulping' || defender.form.id === 'cramorant_gorging') && damage * 2.2 < defender.s.hp) {
+    useShield = false;
+  }
+
+  // PvPoke ActionLogic.js:1250-1253: don't shield early Cramorant Dives or Surfs to save for later attacks
+  if (attacker.c.species.id === 'cramorant' && damage !== 0 && damage / defender.s.hp < 0.33) {
+    useShield = false;
+  }
+
+  // PvPoke ActionLogic.js:1255 typo `move.moveID == "SURF"` is always false, so only Dive counts
+  if (attacker.c.species.id === 'cramorant' && move.id === 'DIVE' && damage > defender.s.hp) {
+    useShield = false;
+  }
 
   return { value: useShield, damage };
 }
@@ -144,7 +159,17 @@ export function pvpokeShield(state: BattleState, me: Side, incomingMoveIndex: nu
     }
   }
 
-  // PvPoke Battle.js:1121-1137 skipped: Aegislash and Cramorant form branches (form changes unsupported).
+  // PvPoke Battle.js:1121-1125 skipped: Aegislash shield form (Aegislash unsupported).
+
+  // PvPoke Battle.js:1127-1131: save shields in Cramorant gulping or gorging form to trigger Gulp Missile against weak moves
+  if ((defender.form.id === 'cramorant_gulping' || defender.form.id === 'cramorant_gorging') && damage * 2.2 < defender.s.hp) {
+    useShield = shieldDecision.value;
+  }
+
+  // PvPoke Battle.js:1133-1136: don't shield early Cramorant Dives or Surfs to save for later attacks
+  if (attacker.c.species.id === 'cramorant' && damage / defender.s.hp < 0.33) {
+    useShield = shieldDecision.value;
+  }
   // PvPoke Battle.js:1139-1185 skipped: decisionMethod "random" and emulate-only shield overrides.
   return useShield;
 }

@@ -1,15 +1,14 @@
 # Matchup matrix report
 
-Generated 2026-10-16 by `npm run gen-matrix` from PvPoke commit `a23fb293300077028a65da534c73bd6367b7ef9d`.
+Generated 2026-10-17 by `npm run gen-matrix` from PvPoke commit `a23fb293300077028a65da534c73bd6367b7ef9d`.
 
 - Meta size: 150
 - Simulations: 202500
-- Elapsed: 69.1 s
-- Mirror mismatches (off by more than 1): 61
+- Elapsed: 60.0 s
+- Mirror mismatches (off by more than 1): 67
 
 ## Excluded (unsupported) before the meta was full
 
-- cramorant: UnsupportedPokemonError: cramorant: form change (charged_move -> variable) is not modelled yet
 - aegislash_shield: UnsupportedPokemonError: aegislash_shield: form change (activate_charged -> aegislash_blade) is not modelled yet
 
 ## Mirror mismatches (first 20)
@@ -18,6 +17,12 @@ a's rating vs b at shields sa-sb, and b's rating vs a at sb-sa. These should add
 
 | a | b | shields (a-b) | a rating | b rating |
 |---|---|---|---|---|
+| cramorant | cramorant | 0-0 | 531 | 531 |
+| cramorant | cramorant | 0-1 | 416 | 607 |
+| cramorant | cramorant | 0-2 | 416 | 607 |
+| cramorant | cramorant | 1-1 | 619 | 619 |
+| cramorant | cramorant | 1-2 | 619 | 619 |
+| cramorant | cramorant | 2-2 | 619 | 619 |
 | florges | florges | 0-1 | 309 | 722 |
 | florges | florges | 1-1 | 550 | 550 |
 | thievul | thievul | 0-0 | 547 | 547 |
@@ -32,9 +37,3 @@ a's rating vs b at shields sa-sb, and b's rating vs a at sb-sa. These should add
 | rillaboom | rillaboom | 0-0 | 546 | 546 |
 | rillaboom | rillaboom | 0-1 | 399 | 666 |
 | rillaboom | rillaboom | 0-2 | 279 | 767 |
-| rillaboom | rillaboom | 1-1 | 523 | 523 |
-| rillaboom | rillaboom | 1-2 | 414 | 624 |
-| rillaboom | dusclops_shadow | 2-2 | 337 | 449 |
-| forretress_shadow | forretress_shadow | 1-1 | 519 | 519 |
-| forretress_shadow | forretress_shadow | 1-2 | 316 | 722 |
-| forretress_shadow | forretress | 0-0 | 519 | 519 |

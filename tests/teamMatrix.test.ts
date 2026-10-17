@@ -61,7 +61,7 @@ describe('teamMatrix', () => {
     ['invalid IVs', { ...fromRankings('azumarill'), ivs: { atk: 16, def: 0, hp: 0 } }, /IVs must be integers 0-15/],
     ['CP over the cap', { ...fromRankings('melmetal'), level: 40 }, /over the 1500 cap/],
     ['a level that is not a half-level', { ...fromRankings('azumarill'), level: 20.3 }, /not a valid half-level/],
-    ['an unsupported species', fromRankings('cramorant'), /cramorant/],
+    ['an unsupported species', fromRankings('aegislash_shield'), /aegislash/],
   ] as [string, RosterEntry, RegExp][])('rejects %s with a RosterError naming the entry', (_name, bad, message) => {
     const run = () => teamMatrix(gd, [fromRankings('azumarill'), bad], meta);
     expect(run).toThrow(RosterError);

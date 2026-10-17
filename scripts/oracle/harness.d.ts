@@ -18,6 +18,8 @@ export interface MoveMetaRequest { a: OracleMon; b: OracleMon }
 export interface PvpokeSideSnapshot {
   hp: number; energy: number; shields: number; buffs: [number, number];
   fastDamage: number; chargedDamage: number[];
+  /** PvPoke activeFormId (Cramorant's shield rules read it). */
+  formId: string;
 }
 /** A shield decision PvPoke made during a default simulation. */
 export interface PvpokeShieldDecision {

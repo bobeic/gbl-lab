@@ -439,7 +439,19 @@ export function decide(state: BattleState, me: Side, trace?: string[]): PolicyDe
     }
   }
 
-  // PvPoke ActionLogic.js:365-386 skipped: Cramorant Gulp Missile form change (form changes unsupported).
+  // PvPoke ActionLogic.js:365-386: if Cramorant has not changed form, use Dive or Surf as soon as possible
+  // if other moves aren't meaningfully more effective
+  if (poke.form.id === 'cramorant') {
+    const gulpMove = poke.activeChargedMoves.find((m) => m.id === 'DIVE' || m.id === 'SURF');
+    // PvPoke ActionLogic.js:368 typo `move.moveId != "DIVE" && move.moveID != "SURF"`: the second half is always true
+    const nonGulpMove = poke.activeChargedMoves.find((m) => m.id !== 'DIVE');
+
+    if (gulpMove && nonGulpMove && poke.s.energy >= gulpMove.energy
+      && opponent.s.hp > table.of(poke, nonGulpMove) * 1.3 && poke.dpeOf(nonGulpMove) / poke.dpeOf(gulpMove) < 1.5) {
+      log(() => ` uses ${gulpMove.name} to trigger form change as soon as possible.`);
+      return done({ type: 'charged', index: poke.indexOf(gulpMove) });
+    }
+  }
 
   // PvPoke ActionLogic.js:388-437: if the opponent can't be fainted in a limited number of cycles, do a simpler selection
   const bestChargedMove = required(poke.bestChargedMove, poke, 'best charged move');
@@ -633,8 +645,7 @@ export function decide(state: BattleState, me: Side, trace?: string[]): PolicyDe
   }
 
   // PvPoke ActionLogic.js:975-992: if move is self debuffing and doesn't KO, try to stack as much as you can
-  // (the Cramorant gulping/gorging opponent condition is skipped: form changes unsupported)
-  if (first().selfDebuffing) {
+  if (first().selfDebuffing || opponent.form.id === 'cramorant_gulping' || opponent.form.id === 'cramorant_gorging') {
     const targetEnergy = Math.floor(100 / first().energy) * first().energy;
 
     if (poke.s.energy < targetEnergy) {

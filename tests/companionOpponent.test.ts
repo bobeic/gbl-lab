@@ -18,10 +18,10 @@ describe('opponentCard', () => {
   });
 
   it('keeps moves and counts for an unsupported opponent', () => {
-    const card = opponentCard(app, 'cramorant');
+    const card = opponentCard(app, 'aegislash_shield');
     expect(card.combatant).toBeNull();
     expect(card.unsupportedReason).toMatch(/^UnsupportedPokemonError: /);
-    expect(card.fast.id).toBe('PECK');
+    expect(card.fast.id).toBe('AEGISLASH_CHARGE_PSYCHO_CUT');
     expect(card.charged).toHaveLength(2);
     expect(card.charged[0]!.counts).toHaveLength(3);
   });

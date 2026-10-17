@@ -87,3 +87,38 @@ describe("PvPoke ActionLogic.js:236-252: break the opponent's disguise", () => {
     expect(breaks(patch(start(0), 1, { formId: 'mimikyu_busted' }))).toBe(false);
   });
 });
+
+describe('PvPoke ActionLogic.js:365-386: Cramorant catches prey as soon as it can', () => {
+  const rules = { maxBuffStages: gd.maxBuffStages, buffDivisor: gd.buffDivisor };
+  // Registeel takes Dive neutrally and resists Fly, so Fly isn't meaningfully better (Azumarill resists Dive).
+  const opp = { speciesId: 'registeel', fastMoveId: 'LOCK_ON', chargedMoveIds: ['FOCUS_BLAST', 'ZAP_CANNON'] };
+  const MSG = 'to trigger form change as soon as possible';
+  const at = (chargedMoveIds: string[], fastMoveId: string, energy: number, formId = 'cramorant'): BattleState => {
+    // Move-timing optimisation (ActionLogic.js:300-362) would return first; switch it off to reach the branch.
+    const cram = buildCombatant(gd, { speciesId: 'cramorant', fastMoveId, chargedMoveIds, settings: { optimizeMoveTiming: false } });
+    const s = createBattle([cram, buildCombatant(gd, opp)],
+      { shields: [1, 1], startEnergy: [energy, 0] }, rules);
+    return { ...s, sides: [{ ...s.sides[0], formId }, s.sides[1]] };
+  };
+  const energyOf = (id: string) => (gd.moves.get(id) as { energy: number }).energy;
+
+  it('Cramorant throws Dive as soon as it can to catch prey', () => {
+    const trace: string[] = [];
+    const decision = decide(at(['DIVE', 'FLY'], 'PECK', energyOf('DIVE')), 0, trace);
+    expect(trace.some((l) => l.includes(MSG))).toBe(true);
+    expect(decision.action).toEqual({ type: 'charged', index: 0 });
+  });
+
+  it('but not once it holds prey', () => {
+    const trace: string[] = [];
+    decide(at(['DIVE', 'FLY'], 'PECK', energyOf('DIVE'), 'cramorant_gulping'), 0, trace);
+    expect(trace.some((l) => l.includes(MSG))).toBe(false);
+  });
+
+  it('a Surf/Hydro Pump Cramorant compares Surf with itself (PvPoke ActionLogic.js:368 typo)', () => {
+    const trace: string[] = [];
+    const decision = decide(at(['SURF', 'HYDRO_PUMP'], 'WATER_GUN', energyOf('SURF')), 0, trace);
+    expect(trace.some((l) => l.includes(`uses Surf ${MSG}`))).toBe(true);
+    expect(decision.action).toEqual({ type: 'charged', index: 0 });
+  });
+});
