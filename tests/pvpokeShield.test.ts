@@ -108,3 +108,68 @@ describe('pvpokeShield matches every shield decision PvPoke makes in default sim
     expect(mismatches.slice(0, 10)).toEqual([]);
   });
 });
+
+describe('PvPoke Cramorant shield branches (ActionLogic.js:1244-1257, Battle.js:1127-1137)', () => {
+  const azu = { speciesId: 'azumarill', fastMoveId: 'BUBBLE', chargedMoveIds: ['ICE_BEAM', 'PLAY_ROUGH'] };
+  const cramSpec = (chargedMoveIds = ['DIVE', 'FLY']) => ({ speciesId: 'cramorant', fastMoveId: 'PECK', chargedMoveIds });
+  const bait: Partial<PolicySettings> = { baitShields: 2 }; // PvPoke shields every move from an always-baiting attacker
+  const withSide = (s: BattleState, side: Side, fields: Partial<SideState>): BattleState => {
+    const sides: [SideState, SideState] = [s.sides[0], s.sides[1]];
+    sides[side] = { ...sides[side], ...fields };
+    return { ...s, sides };
+  };
+  /** Azumarill (side 0) attacks Cramorant (side 1) in `formId`. */
+  const azuHitsCram = (formId: string, settings: Partial<PolicySettings> = {}) => withSide(createBattle(
+    [buildCombatant(gd, { ...azu, settings }), buildCombatant(gd, cramSpec())], { shields: [1, 1], startEnergy: [0, 0] }, rules), 1, { formId });
+  /** Cramorant (side 0) attacks Azumarill (side 1) at `hp`. */
+  const cramHitsAzu = (hp: number | null, settings: Partial<PolicySettings> = bait, moves?: string[]) => {
+    const s = createBattle([buildCombatant(gd, { ...cramSpec(moves), settings }), buildCombatant(gd, azu)], { shields: [1, 1], startEnergy: [0, 0] }, rules);
+    return hp === null ? s : withSide(s, 1, { hp });
+  };
+  const dmg = (s: BattleState, side: Side, i: number) => s.sides[side].lastDamage.charged[i]!;
+
+  it('a gulping Cramorant lets a weak move through', () => {
+    const iceBeam = (s: BattleState) => s.combatants[0].chargedMoves[0]!;
+    const plain = azuHitsCram('cramorant', bait);
+    expect(dmg(plain, 0, 0) * 2.2).toBeLessThan(plain.sides[1].hp);
+    expect(wouldShield(plain, 0, 1, iceBeam(plain)).value).toBe(true);
+    const gulping = azuHitsCram('cramorant_gulping', bait);
+    expect(wouldShield(gulping, 0, 1, iceBeam(gulping)).value).toBe(false);
+    expect(wouldShield(azuHitsCram('cramorant_gorging', bait), 0, 1, iceBeam(gulping)).value).toBe(false);
+  });
+
+  it('a move from Cramorant under a third of HP is not shielded', () => {
+    const full = cramHitsAzu(null);
+    const fly = full.combatants[0].chargedMoves[1]!;
+    expect(dmg(full, 0, 1) / full.sides[1].hp).toBeLessThan(0.33);
+    expect(wouldShield(full, 0, 1, fly).value).toBe(false);
+    expect(wouldShield(cramHitsAzu(dmg(full, 0, 1) * 2), 0, 1, fly).value).toBe(true);
+  });
+
+  it("Cramorant's Dive is not shielded when it would KO anyway", () => {
+    const d = dmg(cramHitsAzu(null), 0, 0);
+    const dive = cramHitsAzu(null).combatants[0].chargedMoves[0]!;
+    expect(wouldShield(cramHitsAzu(d), 0, 1, dive).value).toBe(true);
+    expect(wouldShield(cramHitsAzu(d - 1), 0, 1, dive).value).toBe(false);
+  });
+
+  it('a KO-ing Surf is still shielded (PvPoke ActionLogic.js:1255 moveID typo)', () => {
+    const s = cramHitsAzu(null, bait, ['SURF', 'FLY']);
+    const surf = s.combatants[0].chargedMoves[0]!;
+    expect(wouldShield(cramHitsAzu(dmg(s, 0, 0) - 1, bait, ['SURF', 'FLY']), 0, 1, surf).value).toBe(true);
+  });
+
+  it('in Battle.useMove, a gulping Cramorant defers to wouldShield against a weak move', () => {
+    const plain = azuHitsCram('cramorant');
+    expect(pvpokeShield(plain, 1, 0, dmg(plain, 0, 0))).toBe(true);
+    const gulping = azuHitsCram('cramorant_gulping');
+    expect(wouldShield(gulping, 0, 1, gulping.combatants[0].chargedMoves[0]!).value).toBe(false);
+    expect(pvpokeShield(gulping, 1, 0, dmg(gulping, 0, 0))).toBe(false);
+  });
+
+  it("in Battle.useMove, Cramorant's move under a third of HP defers to wouldShield", () => {
+    const full = cramHitsAzu(null, {});
+    expect(pvpokeShield(full, 1, 1, dmg(full, 0, 1))).toBe(false);
+    expect(pvpokeShield(cramHitsAzu(dmg(full, 0, 1) * 2, {}), 1, 1, dmg(full, 0, 1))).toBe(true);
+  });
+});
