@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { defaultRosterEntry, formatCounts, movesetInfo, searchSpecies, type AppData, type SavedApp } from '../../../src/companion';
 import { buildRosterCombatant, parseRoster, type RosterEntry } from '../../../src/matrix/teamMatrix';
+import { PokemonIcon } from '../components/PokemonIcon';
 import { entryName, errorText, moveName, speciesName } from '../names';
 
 type Team = SavedApp['team'];
@@ -74,7 +75,7 @@ function AddPokemon({ app, onSave }: { readonly app: AppData; readonly onSave: (
         <input class="search" type="search" placeholder="Search Pokémon…" aria-label="Search Pokémon" value={query} onInput={(e) => setQuery(e.currentTarget.value)} />
         <div class="results">
           {searchSpecies(app.ranked, query).map((r) => (
-            <button key={r.speciesId} type="button" class="result" onClick={() => { setDraft(draftFor(app, r.speciesId)); setQuery(''); setError(null); }}>{r.name}</button>
+            <button key={r.speciesId} type="button" class="result" onClick={() => { setDraft(draftFor(app, r.speciesId)); setQuery(''); setError(null); }}><PokemonIcon speciesId={r.speciesId} />{r.name}</button>
           ))}
         </div>
       </div>
@@ -222,7 +223,7 @@ export function TeamScreen({ app, roster, team, onChange }: TeamScreenProps) {
             const name = entryName(app, roster[i]!);
             return (
               <li key={i} class="me row">
-                <span class="name">{pos === 0 ? `${name} (lead)` : name}</span>
+                <span class="name"><PokemonIcon speciesId={roster[i]!.speciesId} />{pos === 0 ? `${name} (lead)` : name}</span>
                 <span class="btns">
                   <button type="button" class="btn icon" aria-label={`Move ${name} up`} disabled={pos === 0} onClick={() => move(pos, -1)}>↑</button>
                   <button type="button" class="btn icon" aria-label={`Move ${name} down`} disabled={pos === picked.length - 1} onClick={() => move(pos, 1)}>↓</button>
@@ -245,7 +246,7 @@ export function TeamScreen({ app, roster, team, onChange }: TeamScreenProps) {
             return (
               <li key={i} class="me">
                 <div class="row">
-                  <span class="name">{name}</span>
+                  <span class="name"><PokemonIcon speciesId={e.speciesId} />{name}</span>
                   <span class="btns">
                     <button type="button" class="btn" disabled={inTeam || picked.length >= 3} aria-label={`Add ${name} to team`} onClick={() => setPicked([...picked, i])}>
                       {inTeam ? 'In team' : 'Add'}

@@ -1,9 +1,11 @@
 import { useState } from 'preact/hooks';
 import { ratingBand } from '../../../src/companion';
 import type { Cell } from '../../../src/matrix/cell';
+import { PokemonIcon } from './PokemonIcon';
 import { BAND_CLASS, ShieldTable } from './ShieldTable';
 
 export interface TeamRowProps {
+  readonly speciesId: string;
   readonly name: string;
   /** null when the opponent can't be simulated or none is picked yet. */
   readonly rating: number | null;
@@ -16,12 +18,12 @@ export interface TeamRowProps {
 }
 
 /** One of my Pokémon against the current opponent. */
-export function TeamRow({ name, rating, cell, counts, reason, onField, fainted, onSwitchIn }: TeamRowProps) {
+export function TeamRow({ speciesId, name, rating, cell, counts, reason, onField, fainted, onSwitchIn }: TeamRowProps) {
   const [open, setOpen] = useState(false);
   return (
     <li class={fainted ? 'me fainted' : 'me'}>
       <div class="row">
-        <span class="name">{name}{onField ? ' (in)' : ''}{fainted ? ' (fainted)' : ''}</span>
+        <span class="name"><PokemonIcon speciesId={speciesId} />{name}{onField ? ' (in)' : ''}{fainted ? ' (fainted)' : ''}</span>
         <span class="btns">
           {rating !== null && <span class={`rating ${BAND_CLASS[ratingBand(rating)]}`}>{rating}</span>}
           {!onField && !fainted && <button type="button" class="btn" aria-label={`Switch in ${name}`} onClick={onSwitchIn}>Switch in</button>}

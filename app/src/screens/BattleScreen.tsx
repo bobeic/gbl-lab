@@ -10,6 +10,7 @@ import { LogBar } from '../components/LogBar';
 import { MovesPanel } from '../components/MovesPanel';
 import { OpponentCard } from '../components/OpponentCard';
 import { Suggestion } from '../components/Suggestion';
+import { PokemonIcon } from '../components/PokemonIcon';
 import { TeamRow } from '../components/TeamRow';
 import { entryName, errorText, moveName } from '../names';
 
@@ -24,6 +25,7 @@ export interface BattleScreenProps {
 
 interface Member {
   readonly slot: number;
+  readonly speciesId: string;
   readonly name: string;
   readonly combatant: Combatant;
   readonly counts: string;
@@ -41,6 +43,7 @@ function buildTeam(app: AppData, roster: readonly RosterEntry[], team: SavedApp[
         const { charged } = movesetInfo(app.gd, entry.fastMoveId, entry.chargedMoveIds);
         return {
           slot,
+          speciesId: entry.speciesId,
           name: entryName(app, entry),
           combatant: buildRosterCombatant(app.gd, entry, index),
           counts: charged.map((c) => `${c.name} ${formatCounts(c.counts)}`).join(' · '),
@@ -139,7 +142,7 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
           <div class="results">
             {results.map((r) => (
               <button key={r.speciesId} type="button" class="result" onClick={() => { dispatch({ type: 'addOpponent', speciesId: r.speciesId }); setQuery(''); }}>
-                {r.name}
+                <PokemonIcon speciesId={r.speciesId} />{r.name}
               </button>
             ))}
           </div>
@@ -214,6 +217,7 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
                 return (
                   <TeamRow
                     key={slot}
+                    speciesId={m.speciesId}
                     name={m.name}
                     rating={rating}
                     cell={cells?.[slot] ?? null}

@@ -151,4 +151,16 @@ describe('BattleScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Yes, new battle' }));
     expect(spy).toHaveBeenLastCalledWith({ type: 'newBattle' });
   });
+
+  it('shows GO icons for the opponent, the search results and my team', () => {
+    setup();
+    fireEvent.input(screen.getByLabelText('Search opponent'), { target: { value: 'registeel' } });
+    const result = screen.getByRole('button', { name: 'Registeel' });
+    expect(result.querySelector('img')?.getAttribute('src')).toMatch(/pm379\.icon\.png$/);
+    fireEvent.click(result);
+    expect(screen.getByRole('region', { name: 'Opponent' }).querySelector('img')?.getAttribute('src')).toMatch(/pm379\.icon\.png$/);
+    expect(teamRows().map((r) => r.querySelector('img')?.getAttribute('src')?.split('/').pop()).sort())
+      .toEqual(['pm184.icon.png', 'pm308.icon.png', 'pm752.icon.png']);
+  });
 });
+
