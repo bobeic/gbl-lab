@@ -1,7 +1,7 @@
 # Cramorant (Gulp Missile) — Design Spec
 
 Date: 2026-10-17
-Status: Draft
+Status: Approved
 Builds on: `2026-10-15-battle-engine-design.md` (engine spec) and `2026-10-15-form-changes-design.md` (form-changes spec, whose form machinery this reuses)
 
 ## 1. Context and intent
@@ -17,7 +17,7 @@ Builds on: `2026-10-15-battle-engine-design.md` (engine spec) and `2026-10-15-fo
 
 ### Success criteria
 - `buildCombatant` accepts Cramorant (`cramorant`, ranking moveset Peck / Dive / Fly, and any legal moveset).
-- Cramorant matchups match PvPoke exactly at all nine shield combinations (§6).
+- Cramorant (ranking moveset) matchups match PvPoke exactly at all nine shield combinations (§4).
 - No regressions: every existing oracle fixture still matches exactly.
 - The matrix includes Cramorant (no longer in `excluded`); the companion accepts it on the roster and simulates it as an opponent.
 
@@ -73,10 +73,9 @@ When Cramorant is the defender, is gulping or gorging, and is hit by a charged m
 Port §2.6, citing PvPoke file:line, including the typos.
 
 ## 4. Validation
-- **Exact parity for every legal moveset**, not just the ranking set (decided: the user asked to match PvPoke). The typo ports and the Surf trigger only matter for Surf movesets, so they need oracle coverage.
+- **Oracle parity for the ranking moveset only** (Peck / Dive / Fly; decided by the user). The matrix, companion and team builder all use the ranking moveset. The Surf trigger and the two typo ports are still ported as written so Surf movesets simulate, but they get unit tests only, no oracle cases: neither typo changes behaviour with Dive + Fly.
 - **Cramorant oracle fixture** (extend `form-change-oracle.json` or add `cramorant-oracle.json`, builder's call): all generated with the existing harness (`scripts/oracle/`), exact rating match required.
   - The ranking moveset (Peck / Dive / Fly) vs the top 100 of the oracle meta at all nine shield combinations, plus a Cramorant mirror.
-  - The Surf movesets (at least Peck and Water Gun each with Surf+Fly, Dive+Surf and Surf+Hydro Pump) vs a smaller opponent set (builder's call, e.g. the top 30) at all nine shield combinations.
 - **Regenerating the existing fixtures** (decided: regenerate them all). Cramorant is #4, so accepting it in `metaSpecies` reshuffles every fixture built from the meta list: `engine-oracle.json` (top-40 fast-only round robin and the seeded scripted cases), `move-meta-oracle.json` and `shield-oracle.json` (gen-decision-oracle.ts:10), the opponent lists in `form-change-oracle.json`, and `oracle-gl.json` (`tests/matrixMeta.test.ts:68-73` requires it to match `metaSpecies(gd, 100)`). The regression evidence is two-part: (1) before the meta change, the engine with Cramorant support still passes every **current** fixture unchanged; (2) after regenerating, every regenerated fixture matches exactly.
 - **Unit tests:** form resolves by HP (gulping above half, gorging at or below); shielded Dive still catches prey; unshielded hit while gulping fires Arrokuda for 15% of the opponent's max HP + 1 with −1 Defense and reverts the form; gorging → Pikachu −2 Attack; shielded hit and `instant` moves don't trigger it; it fires even when the triggering hit KOs Cramorant; mirror uses priority; shield-logic branches fire at their thresholds.
 - **Matrix:** rerun `npm run gen-matrix`; `excluded` loses Cramorant; `tests/matrixCommitted.test.ts` passes with the regenerated file.
