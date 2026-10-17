@@ -120,7 +120,9 @@ export function resolveTurn(
   const snapshot = (): BattleState => ({ ...state, sides: [sides[0], sides[1]] });
   let chargedUsed = 0;
 
-  for (const act of turnActions) {
+  // Indexed so an action spliced in after the current one (Gulp Missile) runs next (PvPoke Battle.js:432-438)
+  for (let i = 0; i < turnActions.length; i++) {
+    const act = turnActions[i]!;
     const me = act.actor;
     const op = other(me);
     const attacker = active(me);
@@ -141,13 +143,13 @@ export function resolveTurn(
       events.push({ kind: 'fast', turn: state.turn, side: me, moveId: move.id, damage, energyGained: move.energyGain });
     } else if (act.type === 'charged') {
       const idx = act.chargedIndex;
-      const move = attacker.chargedMoves[idx]!;
+      const move = act.extraMove ?? attacker.chargedMoves[idx]!;
       if (sides[me].energy < move.energy) continue;
       if (state.usePriority && sides[me].hp <= 0 && sides[me].faintSource === 'charged' && !move.tags.includes('ignoresFaint')) continue;
 
       let damage = moveDamage(attacker, sides[me].buffs[0], defender, sides[op].buffs[1], move, rules.buffDivisor);
       const charged = [...sides[me].lastDamage.charged];
-      charged[idx] = damage;
+      if (idx >= 0) charged[idx] = damage;
       sides[me] = { ...sides[me], energy: sides[me].energy - move.energy, lastDamage: { ...sides[me].lastDamage, charged } };
 
       let shielded = false;
@@ -169,7 +171,7 @@ export function resolveTurn(
       const buffs = move.buffs;
       if (buffs) {
         let applies = buffs.chance === 1;
-        const meter = sides[me].buffMeters[idx];
+        const meter = idx >= 0 ? sides[me].buffMeters[idx] : null;
         if (buffs.chance < 1 && meter !== null && meter !== undefined) {
           // PvPoke Battle.js:1401-1410 deterministic buff meter
           const next = meter + buffs.chance;
@@ -191,10 +193,19 @@ export function resolveTurn(
           }
         }
       }
-      // PvPoke Battle.js:1547-1580: the attacker changes form after using any charged move (Morpeko)
+      // PvPoke Battle.js:1547-1580: the attacker changes form after a matching charged move (Morpeko, Cramorant)
       const attackerRule = formOf(combatants[me], sides[me].formId).formChange;
-      if (attackerRule?.trigger === 'charged_move' && attackerRule.alternativeFormId !== null) {
-        changeForm(me, attackerRule.alternativeFormId);
+      if (attackerRule?.trigger === 'charged_move' && attackerRule.alternativeFormId !== null
+        && (attackerRule.moveId === 'ANY' || attackerRule.moveId === move.id || attackerRule.moveIds?.includes(move.id))) {
+        // PvPoke Battle.js:1555-1566: Cramorant's 'variable' target resolves by HP after the move
+        const to = attackerRule.alternativeFormId !== 'variable' ? attackerRule.alternativeFormId
+          : sides[me].hp / combatants[me].stats.hp > 0.5 ? 'cramorant_gulping' : 'cramorant_gorging';
+        changeForm(me, to);
+      }
+      // PvPoke Battle.js:1583-1617: a gulping/gorging defender hit by an unshielded, non-instant charged move fires Gulp Missile next
+      const extraMove = formOf(combatants[op], sides[op].formId).gulpMissile;
+      if (extraMove && !shielded && !move.tags.includes('instant')) {
+        turnActions.splice(i + 1, 0, { type: 'charged', actor: op, turn: state.turn, chargedIndex: -1, priority: 0, extraMove });
       }
       // PvPoke Battle.js:1621-1633: the defender changes form after an unshielded, non-instant charged move (Mimikyu's bust)
       const defenderRule = formOf(combatants[op], sides[op].formId).formChange;

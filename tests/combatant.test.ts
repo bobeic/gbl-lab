@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadDefaultGameData } from '../src/data/node';
 import { GameDataError, StatsError, UnsupportedPokemonError } from '../src/errors';
-import { buildCombatant, effectiveStat, moveDamage, withForm } from '../src/engine/combatant';
+import { buildCombatant, effectiveStat, formOf, moveDamage, withForm } from '../src/engine/combatant';
 
 const gd = loadDefaultGameData();
 
@@ -115,8 +115,16 @@ describe('form-changing Pokémon', () => {
       .toThrow(new GameDataError('mimikyu_busted is a battle-only form; use mimikyu'));
   });
 
-  it('still rejects Cramorant, naming its rule', () => {
-    expect(() => buildCombatant(gd, { speciesId: 'cramorant', fastMoveId: 'PECK', chargedMoveIds: ['SURF'] }))
-      .toThrow(new UnsupportedPokemonError('cramorant: form change (charged_move -> variable) is not modelled yet'));
+  it('builds Cramorant with both prey forms', () => {
+    const c = buildCombatant(gd, { speciesId: 'cramorant', fastMoveId: 'PECK', chargedMoveIds: ['DIVE', 'FLY'] });
+    expect([...c.forms.keys()].sort()).toEqual(['cramorant', 'cramorant_gorging', 'cramorant_gulping']);
+    expect(formOf(c, 'cramorant_gulping').gulpMissile?.id).toBe('GULP_MISSILE_ARROKUDA');
+    expect(formOf(c, 'cramorant_gorging').gulpMissile?.id).toBe('GULP_MISSILE_PIKACHU');
+    expect(formOf(c, 'cramorant').gulpMissile).toBeNull();
+  });
+
+  it('still rejects Aegislash, naming its rule', () => {
+    expect(() => buildCombatant(gd, { speciesId: 'aegislash_shield', fastMoveId: 'AEGISLASH_CHARGE_PSYCHO_CUT', chargedMoveIds: ['SHADOW_BALL', 'GYRO_BALL'] }))
+      .toThrow(/aegislash_shield: form change \(activate_charged/);
   });
 });

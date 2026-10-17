@@ -166,3 +166,114 @@ it('leaves ordinary Pokémon in their single form', () => {
   expect(r.state.sides[0].formId).toBe('medicham');
   expect(r.events.some((e) => e.kind === 'formChange')).toBe(false);
 });
+
+describe('Cramorant', () => {
+  const cram: CombatantSpec = { speciesId: 'cramorant', fastMoveId: 'PECK', chargedMoveIds: ['DIVE', 'FLY'] };
+  const gulpIds = (events: readonly BattleEvent[]) => events.filter((e) => e.kind === 'charged' && e.moveId.startsWith('GULP_MISSILE_'));
+  /** Azumarill (side 1) throws Ice Beam at a Cramorant (side 0) in `formId`; only Azumarill shields. */
+  function hitWhile(formId: string, fields: Partial<SideState> = {}, shieldAzu = false) {
+    const s = patch(battle(cram, azu, [0, 1], [0, 100]), 0, { formId, ...fields });
+    return { s, r: turn(s, [null, charged(0)], (_s, d) => d === 1 && shieldAzu) };
+  }
+
+  it('catches Arrokuda after Dive above half HP', () => {
+    const r = turn(battle(cram, azu, [0, 0], [100, 0]), [charged(0), null]);
+    expect(r.state.sides[0].formId).toBe('cramorant_gulping');
+    expect(notFast(r.events).filter((e) => e.kind !== 'faint').at(-1)).toEqual({ kind: 'formChange', turn: 1, side: 0, from: 'cramorant', to: 'cramorant_gulping' });
+  });
+
+  it('catches Pikachu at exactly half HP or less', () => {
+    const s = battle(cram, azu, [0, 0], [100, 0]);
+    const r = turn(patch(s, 0, { hp: Math.floor(s.combatants[0].stats.hp / 2) }), [charged(0), null]);
+    expect(r.state.sides[0].formId).toBe('cramorant_gorging');
+  });
+
+  it('catches prey even when Dive is shielded', () => {
+    const r = turn(battle(cram, azu, [0, 1], [100, 0]), [charged(0), null], always);
+    expect(r.state.sides[1].shields).toBe(0);
+    expect(r.state.sides[0].formId).toBe('cramorant_gulping');
+  });
+
+  it('Fly does not change form', () => {
+    const r = turn(battle(cram, azu, [0, 0], [100, 0]), [charged(1), null]);
+    expect(r.state.sides[0].formId).toBe('cramorant');
+    expect(r.events.some((e) => e.kind === 'formChange')).toBe(false);
+  });
+
+  it('Dive while holding prey keeps the form', () => {
+    const r = turn(patch(battle(cram, azu, [0, 0], [100, 0]), 0, { formId: 'cramorant_gulping' }), [charged(0), null]);
+    expect(r.state.sides[0].formId).toBe('cramorant_gulping');
+    expect(r.events.some((e) => e.kind === 'formChange')).toBe(false);
+  });
+
+  it('an unshielded hit while gulping fires Arrokuda', () => {
+    const { s, r } = hitWhile('cramorant_gulping');
+    const azuHp = s.combatants[1].stats.hp;
+    const gulp = Math.floor(0.15 * azuHp) + 1;
+    expect(notFast(r.events)).toEqual([
+      expect.objectContaining({ kind: 'charged', side: 1, moveId: 'ICE_BEAM', shielded: false }),
+      { kind: 'charged', turn: 1, side: 0, moveId: 'GULP_MISSILE_ARROKUDA', damage: gulp, shielded: false },
+      { kind: 'buff', turn: 1, side: 1, stages: [0, -1], sourceMoveId: 'GULP_MISSILE_ARROKUDA' },
+      { kind: 'formChange', turn: 1, side: 0, from: 'cramorant_gulping', to: 'cramorant' },
+    ]);
+    expect(r.state.sides[1].hp).toBe(azuHp - gulp);
+    expect(r.state.sides[1].shields).toBe(1);
+    expect(r.state.sides[0].energy).toBe(s.sides[0].energy);
+  });
+
+  it('gorging fires Pikachu with -2 Attack', () => {
+    const { r } = hitWhile('cramorant_gorging');
+    expect(gulpIds(r.events)).toEqual([expect.objectContaining({ side: 0, moveId: 'GULP_MISSILE_PIKACHU' })]);
+    expect(r.state.sides[1].buffs).toEqual([-2, 0]);
+    expect(r.state.sides[0].formId).toBe('cramorant');
+  });
+
+  it('a shielded hit or a fast move does not trigger it', () => {
+    const shieldedHit = (() => {
+      const s = patch(battle(cram, azu, [1, 0], [0, 100]), 0, { formId: 'cramorant_gulping' });
+      return turn(s, [null, charged(0)], always);
+    })();
+    expect(shieldedHit.events.find((e) => e.kind === 'charged')).toMatchObject({ moveId: 'ICE_BEAM', shielded: true });
+    expect(gulpIds(shieldedHit.events)).toEqual([]);
+    expect(shieldedHit.state.sides[0].formId).toBe('cramorant_gulping');
+    let s = patch(battle(cram, azu, [0, 0], [0, 0]), 0, { formId: 'cramorant_gulping' });
+    for (let i = 0; i < 3; i++) s = turn(s, [null, { type: 'fast' }]).state;
+    expect(s.sides[0].hp).toBeLessThan(s.combatants[0].stats.hp);
+    expect(s.sides[0].formId).toBe('cramorant_gulping');
+  });
+
+  it('fires even when the hit knocks Cramorant out', () => {
+    const { s, r } = hitWhile('cramorant_gulping', { hp: 1 });
+    const gulp = gulpIds(r.events);
+    expect(gulp).toHaveLength(1);
+    expect(r.state.sides[1].hp).toBe(s.sides[1].hp - (gulp[0] as { damage: number }).damage);
+    expect(r.events).toContainEqual({ kind: 'faint', turn: 1, side: 0 });
+  });
+
+  it('resolves between two same-turn charged moves', () => {
+    const s = patch(battle(cram, azu, [0, 0], [100, 100]), 0, { formId: 'cramorant_gulping' });
+    expect(s.combatants[0].stats.atk).toBeGreaterThan(s.combatants[1].stats.atk); // Cramorant wins CMP
+    const r = turn(s, [charged(1), charged(0)]);
+    expect(r.events.flatMap((e) => (e.kind === 'charged' ? [`${e.side}:${e.moveId}`] : [])))
+      .toEqual(['0:FLY', '1:ICE_BEAM', '0:GULP_MISSILE_ARROKUDA']);
+  });
+
+  it('a Cramorant mirror uses charged-move priority', () => {
+    expect(battle(cram, cram, [0, 0], [0, 0]).usePriority).toBe(true);
+  });
+
+  it("a Gulp Missile is not answered by the opponent's Gulp Missile", () => {
+    let s = battle(cram, cram, [0, 0], [100, 0]);
+    s = patch(patch(s, 0, { formId: 'cramorant_gulping' }), 1, { formId: 'cramorant_gulping' });
+    const r = turn(s, [charged(1), null]);
+    expect(gulpIds(r.events)).toEqual([expect.objectContaining({ side: 1, moveId: 'GULP_MISSILE_ARROKUDA' })]);
+    expect(r.state.sides[0].formId).toBe('cramorant_gulping');
+    expect(r.state.sides[1].formId).toBe('cramorant');
+  });
+
+  it('a Surf moveset catches prey with Surf', () => {
+    const surf: CombatantSpec = { speciesId: 'cramorant', fastMoveId: 'WATER_GUN', chargedMoveIds: ['SURF', 'HYDRO_PUMP'] };
+    const r = turn(battle(surf, azu, [0, 0], [100, 0]), [charged(0), null]);
+    expect(r.state.sides[0].formId).toBe('cramorant_gulping');
+  });
+});

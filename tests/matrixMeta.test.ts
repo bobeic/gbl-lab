@@ -25,18 +25,18 @@ describe('buildMeta', () => {
   });
 
   it('excludes unsupported Pokémon and records why', () => {
-    const meta = buildMeta(gd, [row('cramorant'), row('melmetal'), row('azumarill')], 2);
+    const meta = buildMeta(gd, [row('aegislash_shield'), row('melmetal'), row('azumarill')], 2);
     expect(meta.entries.map((e) => e.speciesId)).toEqual(['melmetal', 'azumarill']);
     expect(meta.excluded).toHaveLength(1);
-    expect(meta.excluded[0]!.speciesId).toBe('cramorant');
+    expect(meta.excluded[0]!.speciesId).toBe('aegislash_shield');
     expect(meta.excluded[0]!.reason).toMatch(/^UnsupportedPokemonError: /);
   });
 
   it('only lists exclusions met before the meta was full', () => {
-    // cramorant is 4th in the rankings; a 3-entry meta never reaches it.
-    expect(rankings[3]!.speciesId).toBe('cramorant');
+    // aegislash_shield is far down the rankings; a 3-entry meta never reaches it.
+    const i = rankings.findIndex((r) => r.speciesId === 'aegislash_shield');
     expect(buildMeta(gd, rankings, 3).excluded).toEqual([]);
-    expect(buildMeta(gd, rankings, 5).excluded.map((e) => e.speciesId)).toContain('cramorant');
+    expect(buildMeta(gd, rankings, i + 1).excluded.map((e) => e.speciesId)).toContain('aegislash_shield');
   });
 
   it('rethrows errors other than unsupported/bad data', () => {

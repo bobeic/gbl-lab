@@ -1,4 +1,4 @@
-import type { StatPair } from '../data/types';
+import type { ChargedMove, StatPair } from '../data/types';
 import { formOf, moveDamage, withForm, type Combatant, type Form } from './combatant';
 import { MAX_ENERGY, MAX_SHIELDS } from './constants';
 import { clampStage } from './damage';
@@ -66,6 +66,8 @@ export interface QueuedAction {
   readonly turn: number;
   readonly chargedIndex: number;
   readonly priority: number;
+  /** A charged move outside the slots (PvPoke extraChargedMovePool, e.g. Gulp Missile); chargedIndex is then -1. */
+  readonly extraMove?: ChargedMove;
 }
 
 export interface BattleRules {
@@ -144,7 +146,9 @@ export function createBattle(combatants: readonly [Combatant, Combatant], setup:
     turn: 1,
     queue: [],
     chargedLastTurn: false,
-    usePriority: combatants[0].stats.atk !== combatants[1].stats.atk,
+    // PvPoke Battle.js:255-258: also on in a Cramorant mirror
+    usePriority: combatants[0].stats.atk !== combatants[1].stats.atk
+      || (combatants[0].species.id === 'cramorant' && combatants[1].species.id === 'cramorant'),
     over: false,
   };
 }

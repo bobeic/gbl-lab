@@ -116,8 +116,8 @@ describe('BattleScreen', () => {
 
   it('says it cannot simulate an unsupported opponent and makes no suggestion', () => {
     setup();
-    pickOpponent('cramorant', 'Cramorant');
-    expect(screen.getByText("Can't simulate Cramorant")).toBeTruthy();
+    pickOpponent('aegis', 'Aegislash (Blade)');
+    expect(screen.getByText("Can't simulate Aegislash (Blade)")).toBeTruthy();
     expect(screen.queryByRole('region', { name: 'Suggestion' })).toBeNull();
     expect(screen.getByRole('region', { name: 'Opponent' }).textContent).toMatch(/\d-\d-\d/);
   });
