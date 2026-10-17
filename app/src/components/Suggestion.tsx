@@ -36,7 +36,7 @@ export function Suggestion({ stay, shield, nameOf, moveName, onSwitched, onStaye
       {stay.kind === 'stay' && <div class="name">Stay in with {nameOf(stay.slot)} ({stay.rating})</div>}
       {line && (
         <div>
-          <div>{line}</div>
+          <div>{stay.kind === 'switch' ? `After switching to ${nameOf(stay.to)}: ${line.toLowerCase()}` : line}</div>
           {shield.kind !== 'none' && (
             <>
               <div class="small">If you shield: {shield.shieldRating} · If you don't: {shield.noShieldRating}</div>

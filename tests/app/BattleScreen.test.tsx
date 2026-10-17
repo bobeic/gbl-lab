@@ -74,6 +74,14 @@ describe('BattleScreen', () => {
     expect(panel.textContent).toMatch(/Throw (Water Pulse|Mirror Coat) first/);
   });
 
+  it('gives shield advice for the Pokémon it says to switch to, not the one leaving', () => {
+    setup();
+    pickOpponent('mel', 'Melmetal');
+    const box = screen.getByRole('region', { name: 'Suggestion' });
+    expect(box.textContent).toContain('After switching to Medicham');
+    expect(box.textContent).toContain('If you shield: 663');
+  });
+
   it('dismisses the suggestion on Stayed in', () => {
     setup();
     pickOpponent('mel', 'Melmetal');

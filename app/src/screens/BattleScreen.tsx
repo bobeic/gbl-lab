@@ -89,15 +89,17 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
   const ratings = cells ? cells.map((c) => ratingAt(c, now.myShields, now.theirShields)) : null;
 
   const onFieldMember = now.onField === null ? null : members?.[now.onField] ?? null;
+  const stay = ratings ? staySwitch(ratings, now.onField, now.fainted) : null;
+  // When switching, the next charged move they throw lands on the Pokémon coming in, so advise for that one.
+  const shieldFor = stay?.kind === 'switch' ? members?.[stay.to] ?? null : onFieldMember;
   const shield = useMemo(
-    () => (onFieldMember && opp ? shieldAdvice(app.gd, onFieldMember.combatant, opp, [now.myShields, now.theirShields]) : null),
-    [app, onFieldMember, opp, now.myShields, now.theirShields],
+    () => (shieldFor && opp ? shieldAdvice(app.gd, shieldFor.combatant, opp, [now.myShields, now.theirShields]) : null),
+    [app, shieldFor, opp, now.myShields, now.theirShields],
   );
   const moves = useMemo(
     () => (onFieldMember && opp ? moveAdvice(app.gd, onFieldMember.combatant, opp, [now.myShields, now.theirShields]) : null),
     [app, onFieldMember, opp, now.myShields, now.theirShields],
   );
-  const stay = ratings ? staySwitch(ratings, now.onField, now.fainted) : null;
   const theirsFainted = now.current !== null && (now.opponents[now.current]?.fainted ?? false);
   const showSuggestion = stay !== null && shield !== null && stay.kind !== 'none' && !theirsFainted && dismissedAt !== now;
 
