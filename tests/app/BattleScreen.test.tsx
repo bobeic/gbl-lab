@@ -56,6 +56,32 @@ describe('BattleScreen', () => {
     expect(screen.getByLabelText('My Pokémon on the field').textContent).toContain('Medicham');
   });
 
+  it('logs the suggested shield with one tap', () => {
+    const spy = setup();
+    pickOpponent('mel', 'Melmetal');
+    const box = screen.getByRole('region', { name: 'Suggestion' });
+    fireEvent.click(within(box).getByRole('button', { name: 'Shielded' }));
+    expect(spy).toHaveBeenLastCalledWith({ type: 'iShielded' });
+    expect(screen.getByLabelText('My shields').textContent).toBe('●○');
+  });
+
+  it("shows the on-field Pokémon's charged moves against the opponent and which to throw first", () => {
+    setup();
+    pickOpponent('mel', 'Melmetal');
+    const panel = screen.getByRole('region', { name: 'Your moves' });
+    expect(panel.textContent).toContain('Araquanid vs Melmetal');
+    expect(panel.textContent).toMatch(/Water Pulse.*% of their HP/);
+    expect(panel.textContent).toMatch(/Throw (Water Pulse|Mirror Coat) first/);
+  });
+
+  it('gives shield advice for the Pokémon it says to switch to, not the one leaving', () => {
+    setup();
+    pickOpponent('mel', 'Melmetal');
+    const box = screen.getByRole('region', { name: 'Suggestion' });
+    expect(box.textContent).toContain('After switching to Medicham');
+    expect(box.textContent).toContain('If you shield: 663');
+  });
+
   it('dismisses the suggestion on Stayed in', () => {
     setup();
     pickOpponent('mel', 'Melmetal');

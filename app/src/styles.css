@@ -77,3 +77,12 @@ th, td { border: 1px solid var(--line); padding: 6px; text-align: center; font-s
 td { font-family: var(--mono); font-weight: 700; }
 .note { border-left: 3px solid var(--hint-line); padding-left: 10px; font-size: 13px; color: var(--muted); }
 .ivs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+
+/* Laptop: opponent | what to do | log, side by side so the battle fits on one screen. */
+.battle { display: grid; gap: 12px; min-width: 0; }
+@media (min-width: 1100px) {
+  .shell:has(.battle) { max-width: 1320px; }
+  .battle { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) 260px; align-items: start; }
+  .battle > .bar { grid-column: 1 / -1; }
+  .battle .logbar { grid-template-columns: 1fr; }
+}

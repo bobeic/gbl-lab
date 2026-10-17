@@ -1,7 +1,10 @@
-# Deploys the battle companion to GitHub Pages. Manual only: run it from the Actions tab.
+# Deploys the battle companion to GitHub Pages on every push to main (including merged PRs),
+# or by hand from the Actions tab.
 name: Deploy companion to Pages
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

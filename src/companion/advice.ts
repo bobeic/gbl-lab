@@ -2,9 +2,9 @@ import type { GameData } from '../data/types';
 import type { Combatant } from '../engine/combatant';
 import { simulateCell, type Cell } from '../matrix/cell';
 
-/** A switch target must rate at least this... */
+/** Below this the Pokémon on the field is losing, and a switch can be suggested... */
 export const SWITCH_WIN_LINE = 500;
-/** ...and beat the Pokémon on the field by at least this much. */
+/** ...to a teammate that beats it by at least this much, even if that teammate doesn't win outright. */
 export const SWITCH_MIN_MARGIN = 100;
 
 /** Green above 550, amber (coin flip) from 450 to 550, red below 450. */
@@ -42,7 +42,7 @@ export function rankSlots(ratings: readonly number[], fainted: readonly boolean[
     .sort((a, b) => ratings[b]! - ratings[a]! || a - b);
 }
 
-/** Suggest switching only when losing and a living teammate wins by a clear margin; otherwise stay. */
+/** Suggest switching only when losing and a living teammate does clearly better; otherwise stay. */
 export function staySwitch(ratings: readonly number[], onField: number | null, fainted: readonly boolean[]): StaySwitch {
   if (onField === null || fainted[onField]) return { kind: 'none' };
   const current = ratings[onField];
@@ -52,6 +52,6 @@ export function staySwitch(ratings: readonly number[], onField: number | null, f
   const best = rankSlots(ratings, fainted).find((slot) => slot !== onField);
   if (best === undefined) return stay;
   const bestRating = ratings[best]!;
-  if (bestRating < SWITCH_WIN_LINE || bestRating - current < SWITCH_MIN_MARGIN) return stay;
+  if (bestRating - current < SWITCH_MIN_MARGIN) return stay;
   return { kind: 'switch', from: onField, to: best, fromRating: current, toRating: bestRating };
 }

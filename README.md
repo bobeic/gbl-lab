@@ -25,7 +25,12 @@ Choose with `--policy`:
   `ivs`, `level` and `label` are optional; defaults are PvPoke's default IVs and the highest level under 1500 CP.
 
 ## Battle companion
-A phone-first web app for use mid-battle (`app/`, logic in `src/companion/`). Type the opponent's name to get their likely moves (PvPoke's ranking moveset) with fast-move counts (e.g. `4-4-4`), your team ranked against them at the current shields, and a stay/switch and shield suggestion that you confirm with one tap. One-tap buttons log shields, faints and switches, with Undo. Your roster and the battle in progress are saved in the browser, so switching to Pokémon GO and back loses nothing. It works offline once loaded and can be added to the iPhone home screen.
+A web app for use mid-battle (`app/`, logic in `src/companion/`), laid out in three columns on a laptop and one on a phone. Type the opponent's name to get their likely moves (PvPoke's ranking moveset) with fast-move counts (e.g. `4-4-4`), your team ranked against them at the current shields, and a stay/switch and shield suggestion that you confirm with one tap.
+
+- **Switching:** suggested when the Pokémon on the field is losing (under 500) and a teammate rates at least 100 higher.
+- **Shields:** advised for each of their charged moves, by simulating them opening with that move while you shield or don't. "Likely first" marks the one PvPoke-style play throws first.
+- **Your charged moves:** for the Pokémon on the field, each move's damage as a share of their HP, type multipliers and STAB, side effects, and which to throw first (the move the simulated battle throws first).
+ One-tap buttons log shields, faints and switches, with Undo. Your roster and the battle in progress are saved in the browser, so switching to Pokémon GO and back loses nothing. It works offline once loaded and can be added to the iPhone home screen.
 
 - Ratings assume a fresh 1v1 at the current shields: **HP and energy aren't tracked**.
 - Only species in PvPoke's Great League rankings are searchable. Opponents the engine can't simulate (e.g. Cramorant) still show moves and counts, with "Can't simulate" instead of ratings.
@@ -37,7 +42,7 @@ Run it:
 
 Publish (one-time steps, yours to do):
 1. In the repo's Settings → Pages, set Source to "GitHub Actions".
-2. In the Actions tab, run "Deploy companion to Pages". It only runs when started by hand; it runs the full test suite before deploying. The site is served at `https://<owner>.github.io/gbl-lab/`.
+2. "Deploy companion to Pages" runs on every push to `main` (so merging a PR deploys), and can also be started by hand from the Actions tab. It runs the full test suite before deploying. The site is served at `https://<owner>.github.io/gbl-lab/`.
 
 ## Run locally
 - `npm install`
