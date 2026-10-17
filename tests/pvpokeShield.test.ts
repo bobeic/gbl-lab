@@ -64,7 +64,7 @@ interface Mon { speciesId: string; moveset: string[] }
 /** [hp, energy, shields, atkStage, defStage, fastDamage, ...chargedDamage] */
 type EncodedSide = number[];
 /** [attacker, moveIndex, wouldShield, shielded, side0, side1] */
-type EncodedDecision = [Side, number, 0 | 1, 0 | 1, EncodedSide, EncodedSide];
+type EncodedDecision = [Side, number, 0 | 1, 0 | 1, EncodedSide, EncodedSide, [string, string]?];
 interface TraceCase { a: number; b: number; shields: [number, number]; baitShields?: [0 | 1 | 2, 0 | 1 | 2]; decisions: EncodedDecision[] }
 const fixture: { upstream: string; mons: Mon[]; cases: TraceCase[] } = JSON.parse(readFileSync('tests/fixtures/shield-oracle.json', 'utf8'));
 
@@ -90,9 +90,10 @@ describe('pvpokeShield matches every shield decision PvPoke makes in default sim
       const a = fixture.mons[c.a]!;
       const b = fixture.mons[c.b]!;
       const start = createBattle([build(a, c.baitShields?.[0]), build(b, c.baitShields?.[1])], { shields: c.shields }, rules);
-      for (const [attacker, moveIndex, ws, shielded, s0, s1] of c.decisions) {
+      for (const [attacker, moveIndex, ws, shielded, s0, s1, forms] of c.decisions) {
         n++;
-        const st: BattleState = { ...start, sides: [decode(start.sides[0], s0), decode(start.sides[1], s1)] };
+        const [f0, f1] = forms ?? [start.sides[0].formId, start.sides[1].formId];
+        const st: BattleState = { ...start, sides: [{ ...decode(start.sides[0], s0), formId: f0 }, { ...decode(start.sides[1], s1), formId: f1 }] };
         const defender = other(attacker);
         const move = st.combatants[attacker].chargedMoves[moveIndex]!;
         const damage = st.sides[attacker].lastDamage.charged[moveIndex]!;

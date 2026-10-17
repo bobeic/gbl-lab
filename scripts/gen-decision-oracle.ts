@@ -30,9 +30,14 @@ function encodeSide(s: PvpokeSideSnapshot): number[] {
   return [s.hp, s.energy, s.shields, s.buffs[0], s.buffs[1], s.fastDamage, ...s.chargedDamage];
 }
 
-/** Compact decision encoding: [attacker, moveIndex, wouldShield, shielded, side0, side1] (booleans as 0/1). */
-function encodeDecision(d: PvpokeShieldDecision): unknown[] {
-  return [d.attacker, d.moveIndex, d.wouldShield ? 1 : 0, d.shielded ? 1 : 0, encodeSide(d.sides[0]), encodeSide(d.sides[1])];
+/**
+ * Compact decision encoding: [attacker, moveIndex, wouldShield, shielded, side0, side1] (booleans as 0/1),
+ * plus [form0, form1] when either side is out of its start form.
+ */
+function encodeDecision(d: PvpokeShieldDecision, startForms: [string, string]): unknown[] {
+  const e: unknown[] = [d.attacker, d.moveIndex, d.wouldShield ? 1 : 0, d.shielded ? 1 : 0, encodeSide(d.sides[0]), encodeSide(d.sides[1])];
+  if (d.sides[0].formId !== startForms[0] || d.sides[1].formId !== startForms[1]) e.push([d.sides[0].formId, d.sides[1].formId]);
+  return e;
 }
 
 /** Every shield decision PvPoke makes in default simulations over meta pairs and shield setups. */
@@ -41,7 +46,7 @@ function shieldCases(): unknown[] {
   for (let i = 0; i < meta.length; i++) {
     for (let j = i + 1; j < meta.length; j++) {
       for (const setup of SHIELD_SETUPS) {
-        const decisions = pvpoke.shieldTrace({ a: meta[i]!, b: meta[j]!, ...setup }).map(encodeDecision);
+        const decisions = pvpoke.shieldTrace({ a: meta[i]!, b: meta[j]!, ...setup }).map((d) => encodeDecision(d, [meta[i]!.speciesId, meta[j]!.speciesId]));
         // Mons are stored as indexes into the fixture's `mons` list to keep the file small.
         if (decisions.length > 0) cases.push({ a: i, b: j, ...setup, decisions });
       }

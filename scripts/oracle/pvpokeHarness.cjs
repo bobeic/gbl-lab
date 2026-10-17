@@ -92,6 +92,7 @@ function createPvpoke(srcDir, options) {
         hp: p.hp, energy: p.energy, shields: p.shields, buffs: [p.statBuffs[0], p.statBuffs[1]],
         fastDamage: p.fastMove.damage,
         chargedDamage: p.chargedMoves.filter(function (m) { return m; }).map(function (m) { return m.damage; }),
+        formId: p.activeFormId,
       };
     }
     // Wrap wouldShield once; it only records while a traced useMove has a pending charged move.
