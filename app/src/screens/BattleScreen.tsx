@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState } from 'preact/hooks';
 import {
-  formatCounts, movesetInfo, opponentCard, rankSlots, ratingAt, searchSpecies, shieldAdvice, staySwitch, teamCells, typeReason,
+  formatCounts, moveAdvice, movesetInfo, opponentCard, rankSlots, ratingAt, searchSpecies, shieldAdvice, staySwitch, teamCells, typeReason,
   type AppData, type BattleAction, type BattleSnapshot, type BattleState, type OpponentCard as Card, type SavedApp,
 } from '../../../src/companion';
 import type { Combatant } from '../../../src/engine/combatant';
 import type { Cell } from '../../../src/matrix/cell';
 import { buildRosterCombatant, type RosterEntry } from '../../../src/matrix/teamMatrix';
 import { LogBar } from '../components/LogBar';
+import { MovesPanel } from '../components/MovesPanel';
 import { OpponentCard } from '../components/OpponentCard';
 import { Suggestion } from '../components/Suggestion';
 import { TeamRow } from '../components/TeamRow';
@@ -92,6 +93,10 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
     () => (onFieldMember && opp ? shieldAdvice(app.gd, onFieldMember.combatant, opp, [now.myShields, now.theirShields]) : null),
     [app, onFieldMember, opp, now.myShields, now.theirShields],
   );
+  const moves = useMemo(
+    () => (onFieldMember && opp ? moveAdvice(app.gd, onFieldMember.combatant, opp, [now.myShields, now.theirShields]) : null),
+    [app, onFieldMember, opp, now.myShields, now.theirShields],
+  );
   const stay = ratings ? staySwitch(ratings, now.onField, now.fainted) : null;
   const theirsFainted = now.current !== null && (now.opponents[now.current]?.fainted ?? false);
   const showSuggestion = stay !== null && shield !== null && stay.kind !== 'none' && !theirsFainted && dismissedAt !== now;
@@ -155,6 +160,7 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
         )}
         {card && <OpponentCard card={card} />}
         {cardError && <p class="error" role="alert">{cardError}</p>}
+        {moves && onFieldMember && card && !theirsFainted && <MovesPanel myName={onFieldMember.name} theirName={card.name} advice={moves} />}
       </section>
 
       <section class="screen">

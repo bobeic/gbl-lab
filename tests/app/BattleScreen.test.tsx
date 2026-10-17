@@ -65,6 +65,15 @@ describe('BattleScreen', () => {
     expect(screen.getByLabelText('My shields').textContent).toBe('●○');
   });
 
+  it("shows the on-field Pokémon's charged moves against the opponent and which to throw first", () => {
+    setup();
+    pickOpponent('mel', 'Melmetal');
+    const panel = screen.getByRole('region', { name: 'Your moves' });
+    expect(panel.textContent).toContain('Araquanid vs Melmetal');
+    expect(panel.textContent).toMatch(/Water Pulse.*% of their HP/);
+    expect(panel.textContent).toMatch(/Throw (Water Pulse|Mirror Coat) first/);
+  });
+
   it('dismisses the suggestion on Stayed in', () => {
     setup();
     pickOpponent('mel', 'Melmetal');
