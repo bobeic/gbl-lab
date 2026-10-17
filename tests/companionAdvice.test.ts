@@ -40,8 +40,9 @@ describe('staySwitch', () => {
     expect(staySwitch([520, 900, 300], 0, [f, f, f]).kind).toBe('stay');
   });
 
-  it('needs the target to reach 500', () => {
-    expect(staySwitch([300, 499, 100], 0, [f, f, f]).kind).toBe('stay');
+  it('switches out of a hopeless matchup even when no teammate wins outright', () => {
+    // The battle the user reported: Melmetal 71 against Seismitoad, Thievul 487, Jellicent 464.
+    expect(staySwitch([71, 487, 464], 0, [f, f, f])).toEqual({ kind: 'switch', from: 0, to: 1, fromRating: 71, toRating: 487 });
   });
 
   it('says nothing when nothing of mine is on the field', () => {
