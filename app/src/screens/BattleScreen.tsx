@@ -109,7 +109,7 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
   const theirName = card?.name ?? '—';
 
   return (
-    <>
+    <div class="battle">
       <div class="bar">
         <span aria-label="My Pokémon on the field">You: {onFieldMember?.name ?? '—'}</span>
         <span class="pips" aria-label="My shields">{pips(now.myShields)}</span>
@@ -155,6 +155,9 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
         )}
         {card && <OpponentCard card={card} />}
         {cardError && <p class="error" role="alert">{cardError}</p>}
+      </section>
+
+      <section class="screen">
 
         {whoIsIn.length > 0 && members && (
           <section class="hint" aria-label="Who's in?">
@@ -177,6 +180,7 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
             moveName={(id) => moveName(app, id)}
             onSwitched={(slot) => dispatch({ type: 'switchIn', slot })}
             onStayed={() => setDismissedAt(now)}
+            onShielded={() => dispatch({ type: 'iShielded' })}
           />
         )}
 
@@ -219,6 +223,6 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
       </section>
 
       <LogBar dispatch={dispatch} canUndo={battle.past.length > 0} onTheySwitched={focusSearch} />
-    </>
+    </div>
   );
 }

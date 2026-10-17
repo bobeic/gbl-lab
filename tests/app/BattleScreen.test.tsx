@@ -56,6 +56,15 @@ describe('BattleScreen', () => {
     expect(screen.getByLabelText('My Pokémon on the field').textContent).toContain('Medicham');
   });
 
+  it('logs the suggested shield with one tap', () => {
+    const spy = setup();
+    pickOpponent('mel', 'Melmetal');
+    const box = screen.getByRole('region', { name: 'Suggestion' });
+    fireEvent.click(within(box).getByRole('button', { name: 'Shielded' }));
+    expect(spy).toHaveBeenLastCalledWith({ type: 'iShielded' });
+    expect(screen.getByLabelText('My shields').textContent).toBe('●○');
+  });
+
   it('dismisses the suggestion on Stayed in', () => {
     setup();
     pickOpponent('mel', 'Melmetal');

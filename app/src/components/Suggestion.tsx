@@ -7,6 +7,7 @@ export interface SuggestionProps {
   readonly moveName: (moveId: string) => string;
   readonly onSwitched: (slot: number) => void;
   readonly onStayed: () => void;
+  readonly onShielded: () => void;
 }
 
 function shieldLine(a: ShieldAdvice, moveName: (id: string) => string): string | null {
@@ -19,7 +20,7 @@ function shieldLine(a: ShieldAdvice, moveName: (id: string) => string): string |
 }
 
 /** Stay or switch, plus what to do with their first charged move, with one-tap confirmation. */
-export function Suggestion({ stay, shield, nameOf, moveName, onSwitched, onStayed }: SuggestionProps) {
+export function Suggestion({ stay, shield, nameOf, moveName, onSwitched, onStayed, onShielded }: SuggestionProps) {
   const line = shieldLine(shield, moveName);
   return (
     <section class="hint" aria-label="Suggestion">
@@ -36,7 +37,14 @@ export function Suggestion({ stay, shield, nameOf, moveName, onSwitched, onStaye
       {line && (
         <div>
           <div>{line}</div>
-          {shield.kind !== 'none' && <div class="small">If you shield: {shield.shieldRating} · If you don't: {shield.noShieldRating}</div>}
+          {shield.kind !== 'none' && (
+            <>
+              <div class="small">If you shield: {shield.shieldRating} · If you don't: {shield.noShieldRating}</div>
+              <div class="btns">
+                <button type="button" class={shield.kind === 'shield' ? 'btn primary' : 'btn'} onClick={onShielded}>Shielded</button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </section>
