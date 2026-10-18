@@ -36,3 +36,8 @@ function rate(gd: GameData, a: Combatant, b: Combatant, shields: [number, number
 export function simulateCell(gd: GameData, a: Combatant, b: Combatant, options: { readonly maxTurns?: number } = {}): Cell {
   return cellFrom((sa, sb) => rate(gd, a, b, [sa, sb], options.maxTurns));
 }
+
+/** a's ratings against b at 0-0, 1-1 and 2-2: the same values as simulateCell's diagonal. */
+export function simulateDiagonal(gd: GameData, a: Combatant, b: Combatant): CellRow {
+  return [rate(gd, a, b, [0, 0], undefined), rate(gd, a, b, [1, 1], undefined), rate(gd, a, b, [2, 2], undefined)];
+}
