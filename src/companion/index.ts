@@ -12,3 +12,4 @@ export * from './battle';
 export * from './persist';
 export * from './teamBuilder';
 export * from './builderSim';
+export * from './builderProtocol';

@@ -1,13 +1,15 @@
 import { useEffect, useReducer, useState } from 'preact/hooks';
 import { loadAppData, loadSaved, save, type AppData, type KeyValueStore } from '../../src/companion';
 import { appReducer } from './appState';
+import { workerSimulate } from './builderClient';
 import { RatingExplainer } from './components/RatingExplainer';
 import { BattleScreen } from './screens/BattleScreen';
+import { BuilderScreen, type Simulate } from './screens/BuilderScreen';
 import { TeamScreen } from './screens/TeamScreen';
 import { browserStore } from './storage';
 
 type Load = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; app: AppData };
-type View = 'battle' | 'team' | 'explainer';
+type View = 'battle' | 'team' | 'builder' | 'explainer';
 
 async function fetchAppData(): Promise<unknown> {
   const res = await fetch(`${import.meta.env.BASE_URL}app-data.json`);
@@ -20,10 +22,12 @@ export interface AppProps {
   readonly fetchData?: () => Promise<unknown>;
   /** Injectable for tests; defaults to localStorage when available. */
   readonly store?: KeyValueStore | null;
+  /** Injectable for tests (jsdom has no Worker); defaults to the Builder's web worker. */
+  readonly simulate?: Simulate;
 }
 
 /** Load the game data and saved state, then show the battle or team view. */
-export function App({ fetchData = fetchAppData, store = browserStore() }: AppProps) {
+export function App({ fetchData = fetchAppData, store = browserStore(), simulate = workerSimulate }: AppProps) {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [saved, dispatch] = useReducer(appReducer, store, loadSaved);
   const [view, setView] = useState<View>('battle');
@@ -56,6 +60,7 @@ export function App({ fetchData = fetchAppData, store = browserStore() }: AppPro
       <nav class="nav">
         <button type="button" class={view === 'battle' ? 'tab on' : 'tab'} onClick={() => setView('battle')}>Battle</button>
         <button type="button" class={view === 'team' ? 'tab on' : 'tab'} onClick={() => setView('team')}>Team</button>
+        <button type="button" class={view === 'builder' ? 'tab on' : 'tab'} onClick={() => setView('builder')}>Builder</button>
         <button type="button" class="link" onClick={() => setView('explainer')}>What the number means</button>
       </nav>
       {view === 'battle' && (
@@ -70,6 +75,15 @@ export function App({ fetchData = fetchAppData, store = browserStore() }: AppPro
       )}
       {view === 'team' && (
         <TeamScreen app={load.app} roster={saved.roster} team={saved.team} onChange={(roster, team) => dispatch({ type: 'setTeam', roster, team })} />
+      )}
+      {view === 'builder' && (
+        <BuilderScreen
+          app={load.app}
+          roster={saved.roster}
+          team={saved.team}
+          simulate={simulate}
+          onUseTeam={(team) => dispatch({ type: 'setTeam', roster: saved.roster, team })}
+        />
       )}
       {view === 'explainer' && <RatingExplainer onClose={() => setView('battle')} />}
     </main>
