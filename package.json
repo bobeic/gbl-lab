@@ -18,6 +18,7 @@
     "gen-matrix": "tsx scripts/gen-matrix.ts",
     "matrix": "tsx scripts/matrix.ts",
     "gen-app-data": "tsx scripts/gen-app-data.ts",
+    "gen-icons": "tsx scripts/gen-icons.ts",
     "dev": "npm run gen-app-data && vite",
     "build": "npm run gen-app-data && vite build",
     "preview": "vite preview",

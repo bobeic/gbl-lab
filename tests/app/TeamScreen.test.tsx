@@ -82,4 +82,11 @@ describe('TeamScreen', () => {
     const out = screen.getByLabelText('Roster JSON') as HTMLTextAreaElement;
     expect(JSON.parse(out.value)).toEqual(three);
   });
+
+  it('shows each Pokémon\'s GO icon in the team and the list', () => {
+    setup(three, [0, 1, 2]);
+    const srcs = (name: string) => [...screen.getByRole('list', { name }).querySelectorAll('img')].map((i) => i.getAttribute('src')?.split('/').pop());
+    expect(srcs('Team order')).toEqual(['pm308.icon.png', 'pm752.icon.png', 'pm184.icon.png']);
+    expect(srcs('Your Pokémon')).toEqual(['pm308.icon.png', 'pm752.icon.png', 'pm184.icon.png']);
+  });
 });
