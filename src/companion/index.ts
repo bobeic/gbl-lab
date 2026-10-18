@@ -10,3 +10,4 @@ export * from './moveAdvice';
 export * from './reasons';
 export * from './battle';
 export * from './persist';
+export * from './teamBuilder';
