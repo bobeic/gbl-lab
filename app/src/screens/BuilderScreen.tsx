@@ -65,17 +65,19 @@ function Details({ app, roster, team, sel, metaIds, onUseTeam }: {
 
 /** Recommend the best teams of three from the roster, simulated off the main thread by `simulate`. */
 export function BuilderScreen({ app, roster, team, simulate, onUseTeam }: BuilderScreenProps) {
-  const [sim, setSim] = useState<Sim>({ status: 'running', done: 0, total: roster.length });
-  const [pins, setPins] = useState<readonly number[]>([]);
+  // Results and pins are tagged with the roster they belong to, so the render before the effect never draws them against a new roster.
+  const [tagged, setTagged] = useState<{ roster: readonly RosterEntry[]; sim: Sim }>({ roster, sim: { status: 'running', done: 0, total: roster.length } });
+  const [pinned, setPinned] = useState<{ roster: readonly RosterEntry[]; list: readonly number[] }>({ roster, list: [] });
+  const sim: Sim = tagged.roster === roster ? tagged.sim : { status: 'running', done: 0, total: roster.length };
+  const pins = pinned.roster === roster ? pinned.list : [];
   const [selected, setSelected] = useState(0);
   const latest = useRef(roster);
 
   useEffect(() => {
     latest.current = roster;
-    setSim({ status: 'running', done: 0, total: roster.length });
-    setPins([]);
     setSelected(0);
     const live = () => latest.current === roster;
+    const setSim = (next: Sim) => setTagged({ roster, sim: next });
     simulate(roster, (done, total) => live() && setSim({ status: 'running', done, total }))
       .then((result) => live() && setSim({ status: 'done', result }))
       .catch((err: unknown) => live() && setSim({ status: 'error', message: errorText(err) }));
@@ -83,7 +85,7 @@ export function BuilderScreen({ app, roster, team, simulate, onUseTeam }: Builde
 
   const candidates = sim.status === 'done' ? sim.result.candidates : [];
   const teams = useMemo(() => recommendTeams(candidates, pins), [candidates, pins]);
-  const setPinsAndReset = (next: readonly number[]) => { setPins(next); setSelected(0); };
+  const setPinsAndReset = (next: readonly number[]) => { setPinned({ roster, list: next }); setSelected(0); };
   const name = (i: number) => entryName(app, roster[i]!);
 
   let body;

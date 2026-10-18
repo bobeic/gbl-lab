@@ -103,4 +103,17 @@ describe('BuilderScreen', () => {
     expect((await rows()).length).toBe(1);
     expect(screen.queryByRole('button', { name: /^Unpin/ })).toBeNull();
   });
+
+  it('never draws the old result or pins against a shorter roster', async () => {
+    const simulate = vi.fn<Simulate>()
+      .mockImplementationOnce(fake({ candidates: four, skipped: [] }))
+      .mockImplementationOnce(() => new Promise(() => {}));
+    const { view } = setup(simulate);
+    await rows();
+    fireEvent.change(screen.getByLabelText('Pin a Pokémon'), { target: { value: '3' } });
+    view.rerender(<BuilderScreen app={app} roster={roster.slice(0, 3)} team={null} simulate={simulate} onUseTeam={vi.fn()} />);
+    expect(screen.getByText('Simulating 0 of 3…')).toBeTruthy();
+    expect(screen.queryByRole('list', { name: 'Best teams' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Unpin/ })).toBeNull();
+  });
 });

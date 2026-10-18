@@ -27,6 +27,12 @@ export const workerSimulate: Simulate = (roster, onProgress) => {
   if (!worker) {
     worker = new Worker(new URL('./builderWorker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = onReply;
+    // A worker that fails to load or crashes would leave every request hanging: fail them, and start afresh next time.
+    worker.onerror = (e) => {
+      worker = undefined;
+      for (const p of pending.values()) p.reject(new Error(`Simulation worker failed: ${e.message || 'unknown error'}`));
+      pending.clear();
+    };
   }
   const id = nextId++;
   const req: BuilderRequest = { id, roster };
