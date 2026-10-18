@@ -54,7 +54,7 @@ export function scoreOrder(team: Team): TeamScore {
       best = Math.max(best, r[1]);
       if (r[ROLE_SCENARIO[role]!] > WIN) {
         isCovered = true;
-        roleWins[role]++;
+        roleWins[role]! += 1;
         if (r[0] > WIN && r[2] > WIN) consistent++;
       }
     });
