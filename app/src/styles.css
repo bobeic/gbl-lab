@@ -112,3 +112,11 @@ td { font-family: var(--mono); font-weight: 700; }
   .builder > .bar-top, .builder > p { grid-column: 1 / -1; }
   .roles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* Laptop: team and roster left, add Pokémon and import/export right. */
+.setup, .setup > .col { display: grid; gap: 12px; min-width: 0; align-content: start; }
+@media (min-width: 1100px) {
+  .shell:has(.setup) { max-width: 1320px; }
+  .setup { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .setup .results[aria-label="Your Pokémon"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
