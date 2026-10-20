@@ -214,58 +214,62 @@ export function TeamScreen({ app, roster, team, onChange }: TeamScreenProps) {
   };
 
   return (
-    <>
-      <section class="screen">
-        <h2>Your team</h2>
-        {picked.length === 0 && <p class="small">Pick 3 Pokémon from your list below, lead first.</p>}
-        <ol class="results" aria-label="Team order">
-          {picked.map((i, pos) => {
-            const name = entryName(app, roster[i]!);
-            return (
-              <li key={i} class="me row">
-                <span class="name"><PokemonIcon speciesId={roster[i]!.speciesId} />{pos === 0 ? `${name} (lead)` : name}</span>
-                <span class="btns">
-                  <button type="button" class="btn icon" aria-label={`Move ${name} up`} disabled={pos === 0} onClick={() => move(pos, -1)}>↑</button>
-                  <button type="button" class="btn icon" aria-label={`Move ${name} down`} disabled={pos === picked.length - 1} onClick={() => move(pos, 1)}>↓</button>
-                  <button type="button" class="btn icon" aria-label={`Remove ${name} from team`} onClick={() => setPicked(picked.filter((p) => p !== i))}>✕</button>
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-        {picked.length > 0 && picked.length < 3 && <p class="small">Pick {3 - picked.length} more.</p>}
-      </section>
-
-      <section class="screen">
-        <h2>Your Pokémon</h2>
-        {roster.length === 0 && <p class="small">Nothing saved yet. Add a Pokémon or import a roster.</p>}
-        <ul class="results" aria-label="Your Pokémon">
-          {roster.map((e, i) => {
-            const name = entryName(app, e);
-            const inTeam = picked.includes(i);
-            return (
-              <li key={i} class="me">
-                <div class="row">
-                  <span class="name"><PokemonIcon speciesId={e.speciesId} />{name}</span>
+    <div class="setup">
+      <div class="col">
+        <section class="screen">
+          <h2>Your team</h2>
+          {picked.length === 0 && <p class="small">Pick 3 Pokémon from your list below, lead first.</p>}
+          <ol class="results" aria-label="Team order">
+            {picked.map((i, pos) => {
+              const name = entryName(app, roster[i]!);
+              return (
+                <li key={i} class="me row">
+                  <span class="name"><PokemonIcon speciesId={roster[i]!.speciesId} />{pos === 0 ? `${name} (lead)` : name}</span>
                   <span class="btns">
-                    <button type="button" class="btn" disabled={inTeam || picked.length >= 3} aria-label={`Add ${name} to team`} onClick={() => setPicked([...picked, i])}>
-                      {inTeam ? 'In team' : 'Add'}
-                    </button>
-                    <button type="button" class="btn icon" aria-label={`Delete ${name}`} onClick={() => removeEntry(i)}>🗑</button>
+                    <button type="button" class="btn icon" aria-label={`Move ${name} up`} disabled={pos === 0} onClick={() => move(pos, -1)}>↑</button>
+                    <button type="button" class="btn icon" aria-label={`Move ${name} down`} disabled={pos === picked.length - 1} onClick={() => move(pos, 1)}>↓</button>
+                    <button type="button" class="btn icon" aria-label={`Remove ${name} from team`} onClick={() => setPicked(picked.filter((p) => p !== i))}>✕</button>
                   </span>
-                </div>
-                <p class="small">
-                  {[e.fastMoveId, ...e.chargedMoveIds].map((m) => moveName(app, m)).join(' · ')}
-                  {e.ivs ? ` · ${e.ivs.atk}/${e.ivs.def}/${e.ivs.hp}` : ' · default IVs'}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+                </li>
+              );
+            })}
+          </ol>
+          {picked.length > 0 && picked.length < 3 && <p class="small">Pick {3 - picked.length} more.</p>}
+        </section>
 
-      <AddPokemon app={app} onSave={addEntry} />
-      <ImportExport app={app} roster={roster} onImport={(entries) => onChange([...roster, ...entries], team)} />
-    </>
+        <section class="screen">
+          <h2>Your Pokémon</h2>
+          {roster.length === 0 && <p class="small">Nothing saved yet. Add a Pokémon or import a roster.</p>}
+          <ul class="results" aria-label="Your Pokémon">
+            {roster.map((e, i) => {
+              const name = entryName(app, e);
+              const inTeam = picked.includes(i);
+              return (
+                <li key={i} class="me">
+                  <div class="row">
+                    <span class="name"><PokemonIcon speciesId={e.speciesId} />{name}</span>
+                    <span class="btns">
+                      <button type="button" class="btn" disabled={inTeam || picked.length >= 3} aria-label={`Add ${name} to team`} onClick={() => setPicked([...picked, i])}>
+                        {inTeam ? 'In team' : 'Add'}
+                      </button>
+                      <button type="button" class="btn icon" aria-label={`Delete ${name}`} onClick={() => removeEntry(i)}>🗑</button>
+                    </span>
+                  </div>
+                  <p class="small">
+                    {[e.fastMoveId, ...e.chargedMoveIds].map((m) => moveName(app, m)).join(' · ')}
+                    {e.ivs ? ` · ${e.ivs.atk}/${e.ivs.def}/${e.ivs.hp}` : ' · default IVs'}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      </div>
+
+      <div class="col">
+        <AddPokemon app={app} onSave={addEntry} />
+        <ImportExport app={app} roster={roster} onImport={(entries) => onChange([...roster, ...entries], team)} />
+      </div>
+    </div>
   );
 }
