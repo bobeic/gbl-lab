@@ -23,7 +23,7 @@ function onReply(e: MessageEvent<BuilderReply>) {
 }
 
 /** Simulate the roster in the Builder's web worker, created on first use. */
-export const workerSimulate: Simulate = (roster, onProgress) => {
+export const workerSimulate: Simulate = (format, roster, onProgress) => {
   if (!worker) {
     worker = new Worker(new URL('./builderWorker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = onReply;
@@ -35,7 +35,7 @@ export const workerSimulate: Simulate = (roster, onProgress) => {
     };
   }
   const id = nextId++;
-  const req: BuilderRequest = { id, roster };
+  const req: BuilderRequest = { id, format, roster };
   return new Promise<Result>((resolve, reject) => {
     pending.set(id, { resolve, reject, onProgress });
     worker!.postMessage(req);

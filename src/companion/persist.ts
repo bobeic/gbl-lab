@@ -1,5 +1,6 @@
 import { parseRoster, type RosterEntry } from '../matrix/teamMatrix';
 import { initialBattle, type BattleSnapshot, type BattleState } from './battle';
+import { FORMATS, type FormatId } from './formats';
 
 /** The subset of the Web Storage API the companion uses, so tests can pass an in-memory store. */
 export interface KeyValueStore {
@@ -7,21 +8,35 @@ export interface KeyValueStore {
   setItem(key: string, value: string): void;
 }
 
-export interface SavedApp {
-  readonly version: 1;
-  readonly roster: readonly RosterEntry[];
-  /** Indices into roster, lead first; null until the user picks a team. */
+/** What each format keeps separately: its team, battle and Builder priorities. */
+export interface FormatState {
+  /** Indices into the shared roster, lead first; null until the user picks a team. */
   readonly team: readonly [number, number, number] | null;
   readonly battle: BattleState;
   /** Meta species ids the Builder weights extra, e.g. ones the user meets a lot. */
   readonly priorities: readonly string[];
 }
 
+export interface SavedApp {
+  readonly version: 2;
+  /** The user's collection, shared by every format. */
+  readonly roster: readonly RosterEntry[];
+  readonly format: FormatId;
+  readonly byFormat: Readonly<Record<FormatId, FormatState>>;
+}
+
 export const STORAGE_KEY = 'gbl-companion';
 
-/** An empty roster, no team and a fresh battle. */
+export function defaultFormatState(): FormatState {
+  return { team: null, battle: initialBattle(), priorities: [] };
+}
+
+const allFormats = (state: (id: FormatId) => FormatState): Record<FormatId, FormatState> =>
+  Object.fromEntries(FORMATS.map((f) => [f.id, state(f.id)])) as Record<FormatId, FormatState>;
+
+/** An empty roster, Great League, and no team and a fresh battle in every format. */
 export function defaultSavedApp(): SavedApp {
-  return { version: 1, roster: [], team: null, battle: initialBattle(), priorities: [] };
+  return { version: 2, roster: [], format: 'great', byFormat: allFormats(defaultFormatState) };
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -47,20 +62,33 @@ function isBattle(v: unknown): v is BattleState {
   return isRecord(v) && isSnapshot(v.now) && Array.isArray(v.past) && v.past.every(isSnapshot);
 }
 
+/** One format's saved state; anything malformed in it falls back on its own, never costing the roster. */
+function formatState(v: unknown, rosterSize: number): FormatState {
+  if (!isRecord(v)) return defaultFormatState();
+  return {
+    team: isTeam(v.team, rosterSize) ? v.team : null,
+    battle: isBattle(v.battle) ? v.battle : initialBattle(),
+    // Missing on saves from before priorities existed.
+    priorities: Array.isArray(v.priorities) && v.priorities.every((p) => typeof p === 'string') ? v.priorities : [],
+  };
+}
+
 /** Restore the saved app, falling back to defaults on anything missing, corrupt or from another version. */
 export function loadSaved(store: KeyValueStore | null): SavedApp {
   try {
     const text = store?.getItem(STORAGE_KEY);
     if (!text) return defaultSavedApp();
     const v: unknown = JSON.parse(text);
-    if (!isRecord(v) || v.version !== 1) return defaultSavedApp();
+    if (!isRecord(v)) return defaultSavedApp();
     const roster = parseRoster(v.roster);
-    if (v.team !== null && !isTeam(v.team, roster.length)) return defaultSavedApp();
-    // A bad battle only costs the battle in progress, not the roster the user typed in.
-    const battle = isBattle(v.battle) ? v.battle : initialBattle();
-    // Missing on saves from before priorities existed.
-    const priorities = Array.isArray(v.priorities) && v.priorities.every((p) => typeof p === 'string') ? v.priorities : [];
-    return { version: 1, roster, team: v.team, battle, priorities };
+    // Version 1 had one team, battle and priorities: they become Great League's.
+    if (v.version === 1) {
+      return { version: 2, roster, format: 'great', byFormat: allFormats((id) => (id === 'great' ? formatState(v, roster.length) : defaultFormatState())) };
+    }
+    if (v.version !== 2) return defaultSavedApp();
+    const byFormat = isRecord(v.byFormat) ? v.byFormat : {};
+    const format = FORMATS.find((f) => f.id === v.format)?.id ?? 'great';
+    return { version: 2, roster, format, byFormat: allFormats((id) => formatState(byFormat[id], roster.length)) };
   } catch {
     return defaultSavedApp();
   }

@@ -30,6 +30,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .shell { max-width: 460px; margin: 0 auto; display: grid; gap: 12px; min-width: 0; }
 .nav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.nav .format { width: auto; margin-right: 6px; font-weight: 600; }
 .tab { min-height: var(--tap); padding: 0 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
 .tab.on { background: var(--btn); color: var(--btn-fg); border-color: var(--btn); }
 .link { min-height: var(--tap); border: 0; background: none; color: var(--muted); text-decoration: underline; padding: 0 8px; margin-left: auto; }

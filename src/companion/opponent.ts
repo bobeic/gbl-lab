@@ -50,7 +50,7 @@ export function movesetInfo(gd: GameData, fastMoveId: string, chargedMoveIds: re
 /** Build the card for a ranked opponent: its ranking moveset, counts and (if supported) a combatant at default IVs. */
 export function opponentCard(app: AppData, speciesId: string): OpponentCard {
   const ranked = app.byId.get(speciesId);
-  if (!ranked) throw new GameDataError(`${speciesId} is not in the Great League rankings`);
+  if (!ranked) throw new GameDataError(`${speciesId} is not in the ${app.format.title} rankings`);
   const species = app.gd.species.get(speciesId);
   if (!species) throw new GameDataError(`Unknown species ${speciesId}`);
   const [fastMoveId, ...chargedMoveIds] = ranked.moveset;

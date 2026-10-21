@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/pre
 import { useReducer } from 'preact/hooks';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BattleScreen } from '../../app/src/screens/BattleScreen';
-import { battleReducer, defaultRosterEntry, initialBattle, type BattleAction, type SavedApp } from '../../src/companion';
+import { battleReducer, defaultRosterEntry, initialBattle, type BattleAction, type FormatState } from '../../src/companion';
 import type { RosterEntry } from '../../src/matrix/teamMatrix';
 import { testAppData } from '../companionFixture';
 
@@ -11,13 +11,13 @@ afterEach(cleanup);
 const app = testAppData();
 const entries = (...ids: string[]): RosterEntry[] => ids.map((id) => defaultRosterEntry(app, id));
 
-function Harness({ roster, team, spy }: { roster: readonly RosterEntry[]; team: SavedApp['team']; spy: (a: BattleAction) => void }) {
+function Harness({ roster, team, spy }: { roster: readonly RosterEntry[]; team: FormatState['team']; spy: (a: BattleAction) => void }) {
   const [battle, dispatch] = useReducer(battleReducer, undefined, initialBattle);
   const send = (a: BattleAction) => { spy(a); dispatch(a); };
   return <BattleScreen app={app} roster={roster} team={team} battle={battle} dispatch={send} onGoToTeam={() => {}} />;
 }
 
-function setup(roster = entries('araquanid', 'medicham', 'azumarill'), team: SavedApp['team'] = [0, 1, 2]) {
+function setup(roster = entries('araquanid', 'medicham', 'azumarill'), team: FormatState['team'] = [0, 1, 2]) {
   const spy = vi.fn();
   render(<Harness roster={roster} team={team} spy={spy} />);
   return spy;

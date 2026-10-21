@@ -1,5 +1,5 @@
-import { useEffect, useReducer, useState } from 'preact/hooks';
-import { loadAppData, loadSaved, save, type AppData, type KeyValueStore } from '../../src/companion';
+import { useEffect, useMemo, useReducer, useState } from 'preact/hooks';
+import { FORMATS, formatEntry, loadFormats, loadSaved, save, type AppData, type FormatId, type KeyValueStore } from '../../src/companion';
 import { appReducer } from './appState';
 import { workerSimulate } from './builderClient';
 import { RatingExplainer } from './components/RatingExplainer';
@@ -8,7 +8,7 @@ import { BuilderScreen, type Simulate } from './screens/BuilderScreen';
 import { TeamScreen } from './screens/TeamScreen';
 import { browserStore } from './storage';
 
-type Load = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; app: AppData };
+type Load = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; formats: Readonly<Record<FormatId, AppData>> };
 type View = 'battle' | 'team' | 'builder' | 'explainer';
 
 async function fetchAppData(): Promise<unknown> {
@@ -35,13 +35,18 @@ export function App({ fetchData = fetchAppData, store = browserStore(), simulate
   useEffect(() => {
     let live = true;
     fetchData()
-      .then((file) => live && setLoad({ status: 'ready', app: loadAppData(file) }))
+      .then((file) => live && setLoad({ status: 'ready', formats: loadFormats(file) }))
       .catch((err: unknown) => live && setLoad({ status: 'error', message: err instanceof Error ? err.message : String(err) }));
     return () => { live = false; };
     // Load once on mount; a new fetchData identity on re-render must not refetch.
   }, []);
 
   useEffect(() => { save(store, saved); }, [store, saved]);
+
+  const app = load.status === 'ready' ? load.formats[saved.format] : null;
+  const fs = saved.byFormat[saved.format];
+  // Battle and Builder see every collection Pokémon with this format's moves; kept stable so the Builder only re-simulates on a real change.
+  const roster = useMemo(() => (app ? saved.roster.map((e) => formatEntry(app, e)) : saved.roster), [app, saved.roster]);
 
   if (load.status === 'loading') return <main class="shell"><p class="small">Loading…</p></main>;
   if (load.status === 'error') {
@@ -58,6 +63,9 @@ export function App({ fetchData = fetchAppData, store = browserStore(), simulate
   return (
     <main class="shell">
       <nav class="nav">
+        <select class="field format" aria-label="Format" value={saved.format} onChange={(e) => dispatch({ type: 'setFormat', format: e.currentTarget.value as FormatId })}>
+          {FORMATS.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
+        </select>
         <button type="button" class={view === 'battle' ? 'tab on' : 'tab'} onClick={() => setView('battle')}>Battle</button>
         <button type="button" class={view === 'team' ? 'tab on' : 'tab'} onClick={() => setView('team')}>Team</button>
         <button type="button" class={view === 'builder' ? 'tab on' : 'tab'} onClick={() => setView('builder')}>Builder</button>
@@ -65,24 +73,24 @@ export function App({ fetchData = fetchAppData, store = browserStore(), simulate
       </nav>
       {view === 'battle' && (
         <BattleScreen
-          app={load.app}
-          roster={saved.roster}
-          team={saved.team}
-          battle={saved.battle}
+          app={app!}
+          roster={roster}
+          team={fs.team}
+          battle={fs.battle}
           dispatch={(action) => dispatch({ type: 'battle', action })}
           onGoToTeam={() => setView('team')}
         />
       )}
       {view === 'team' && (
-        <TeamScreen app={load.app} roster={saved.roster} team={saved.team} onChange={(roster, team) => dispatch({ type: 'setTeam', roster, team })} />
+        <TeamScreen app={app!} roster={saved.roster} team={fs.team} onChange={(roster, team) => dispatch({ type: 'setTeam', roster, team })} />
       )}
       {view === 'builder' && (
         <BuilderScreen
-          app={load.app}
-          roster={saved.roster}
-          team={saved.team}
+          app={app!}
+          roster={roster}
+          team={fs.team}
           simulate={simulate}
-          priorities={saved.priorities}
+          priorities={fs.priorities}
           onPrioritiesChange={(priorities) => dispatch({ type: 'setPriorities', priorities })}
           onUseTeam={(team) => dispatch({ type: 'setTeam', roster: saved.roster, team })}
         />
