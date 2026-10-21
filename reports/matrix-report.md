@@ -1,15 +1,16 @@
 # Matchup matrix report
 
-Generated 2026-10-17 by `npm run gen-matrix` from PvPoke commit `a23fb293300077028a65da534c73bd6367b7ef9d`.
+Generated 2026-10-21 by `npm run gen-matrix` from PvPoke commit `415436c1af47389c299104a83d46be0df5fa5f08`.
 
 - Meta size: 150
 - Simulations: 202500
-- Elapsed: 60.0 s
+- Elapsed: 39.2 s
 - Mirror mismatches (off by more than 1): 67
 
 ## Excluded (unsupported) before the meta was full
 
 - aegislash_shield: UnsupportedPokemonError: aegislash_shield: form change (activate_charged -> aegislash_blade) is not modelled yet
+- minior_core: UnsupportedPokemonError: minior_core: form change (battle_start -> minior_meteor) is not modelled yet
 
 ## Mirror mismatches (first 20)
 

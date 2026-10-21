@@ -11,7 +11,7 @@ const app = loadAppData(JSON.parse(JSON.stringify(file)));
 
 describe('buildAppDataFile / loadAppData', () => {
   it('keeps every ranked species in rank order', () => {
-    expect(app.ranked).toHaveLength(1153);
+    expect(app.ranked).toHaveLength(1154);
     expect(app.ranked[0]!.rank).toBe(0);
     expect(app.ranked[1152]!.rank).toBe(1152);
   });

@@ -3,6 +3,6 @@ import { describe, expect, it } from 'vitest';
 
 describe('vendored data', () => {
   it('is pinned to the upstream commit', () => {
-    expect(readFileSync('data/UPSTREAM', 'utf8').trim()).toBe('a23fb293300077028a65da534c73bd6367b7ef9d');
+    expect(readFileSync('data/UPSTREAM', 'utf8').trim()).toBe('415436c1af47389c299104a83d46be0df5fa5f08');
   });
 });
