@@ -1,5 +1,6 @@
 // Browser-safe barrel for the battle companion.
 export * from './counts';
+export * from './formats';
 export * from './appData';
 export * from './search';
 export * from './opponent';

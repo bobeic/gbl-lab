@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BuilderScreen, type Simulate } from '../../app/src/screens/BuilderScreen';
 import type { Candidate, Diag, SimResult } from '../../src/companion';
 import type { RosterEntry } from '../../src/matrix/teamMatrix';
-import { testAppData } from '../companionFixture';
+import { testAppData, testFormats } from '../companionFixture';
 
 afterEach(cleanup);
 const app = testAppData();
@@ -21,7 +21,7 @@ function cand(index: number, dex: number, beats: number[]): Candidate {
 const four = [cand(0, 308, [0, 1, 2]), cand(1, 184, [3, 4]), cand(2, 379, [5, 6, 7]), cand(3, 171, [8])];
 
 function fake(result: SimResult): Simulate {
-  return async (r, onProgress) => {
+  return async (_format, r, onProgress) => {
     onProgress(r.length, r.length);
     return { ...result, metaIds };
   };
@@ -85,11 +85,30 @@ describe('BuilderScreen', () => {
     expect(screen.getByText(/of the top 10 and your priorities uncovered$/)).toBeTruthy();
   });
 
+  it("simulates only the format's Pokémon against its meta, keeping roster indices", async () => {
+    const fantasy = testFormats().fantasy;
+    const mixed = ['melmetal', 'medicham', 'mimikyu', 'registeel', 'azumarill'].map(entry);
+    const simulate = vi.fn<Simulate>(async (_format, r) => ({
+      candidates: r.map((_, i) => cand(i, [801, 778, 379, 184][i]!, [i])), skipped: [], metaIds,
+    }));
+    render(<BuilderScreen app={fantasy} roster={mixed} team={null} simulate={simulate} priorities={[]} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
+    expect((await rows()).length).toBe(4);
+    expect(simulate.mock.calls[0]![0]).toBe('fantasy');
+    expect(simulate.mock.calls[0]![1].map((e) => e.speciesId)).toEqual(['melmetal', 'mimikyu', 'registeel', 'azumarill']);
+    expect(screen.getByText('Your collection (from Team tab): 4 Pokémon in Fantasy Cup')).toBeTruthy();
+    const pinOptions = within(screen.getByLabelText('Pin a Pokémon')).getAllByRole('option').map((o) => o.textContent);
+    expect(pinOptions).not.toContain('Medicham');
+    expect(pinOptions).toContain('Registeel');
+    // Registeel is roster index 3 but eligible index 2: pinning it by roster index must still work.
+    fireEvent.change(screen.getByLabelText('Pin a Pokémon'), { target: { value: '3' } });
+    for (const row of await rows()) expect(row.textContent).toContain('Registeel');
+  });
+
   it('says no team fits the pins', async () => {
-    const shadow = [...roster.slice(0, 3), entry('medicham_shadow')];
-    setup(fake({ candidates: [...four.slice(0, 3), cand(3, 308, [8])], skipped: [] }), shadow);
+    const shadow = [...roster.slice(0, 3), entry('registeel_shadow')];
+    setup(fake({ candidates: [...four.slice(0, 3), cand(3, 379, [8])], skipped: [] }), shadow);
     await rows();
-    fireEvent.change(screen.getByLabelText('Pin a Pokémon'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('Pin a Pokémon'), { target: { value: '2' } });
     fireEvent.change(screen.getByLabelText('Pin a Pokémon'), { target: { value: '3' } });
     expect(await screen.findByText('No team fits your pins.')).toBeTruthy();
   });

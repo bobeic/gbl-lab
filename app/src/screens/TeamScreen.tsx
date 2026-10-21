@@ -1,13 +1,14 @@
 import { useState } from 'preact/hooks';
-import { defaultRosterEntry, formatCounts, movesetInfo, searchSpecies, type AppData, type SavedApp } from '../../../src/companion';
+import { defaultRosterEntry, formatCounts, formatEntry, movesetInfo, searchSpecies, type AppData, type FormatState } from '../../../src/companion';
 import { buildRosterCombatant, parseRoster, type RosterEntry } from '../../../src/matrix/teamMatrix';
 import { PokemonIcon } from '../components/PokemonIcon';
 import { entryName, errorText, moveName, speciesName } from '../names';
 
-type Team = SavedApp['team'];
+type Team = FormatState['team'];
 
 export interface TeamScreenProps {
   readonly app: AppData;
+  /** The whole shared collection, as saved; only the format's ranked Pokémon are shown. */
   readonly roster: readonly RosterEntry[];
   readonly team: Team;
   readonly onChange: (roster: readonly RosterEntry[], team: Team) => void;
@@ -48,20 +49,6 @@ function entryFromDraft(d: Draft): RosterEntry {
   };
 }
 
-function MoveSelect({ app, label, ids, value, optional, onPick }: {
-  readonly app: AppData; readonly label: string; readonly ids: readonly string[]; readonly value: string; readonly optional?: boolean; readonly onPick: (id: string) => void;
-}) {
-  return (
-    <label class="small">
-      {label}
-      <select class="field" aria-label={label} value={value} onChange={(e) => onPick(e.currentTarget.value)}>
-        {optional && <option value="">None</option>}
-        {ids.map((id) => <option key={id} value={id}>{moveName(app, id)}</option>)}
-      </select>
-    </label>
-  );
-}
-
 function AddPokemon({ app, onSave }: { readonly app: AppData; readonly onSave: (entry: RosterEntry) => string | null }) {
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -82,9 +69,6 @@ function AddPokemon({ app, onSave }: { readonly app: AppData; readonly onSave: (
     );
   }
 
-  const species = app.gd.species.get(draft.speciesId);
-  const fastIds = species?.fastMoveIds ?? [];
-  const chargedIds = species?.chargedMoveIds ?? [];
   let counts: string | null = null;
   try {
     const info = movesetInfo(app.gd, draft.fastMoveId, [draft.charged1, draft.charged2].filter((m) => m !== ''));
@@ -104,9 +88,7 @@ function AddPokemon({ app, onSave }: { readonly app: AppData; readonly onSave: (
   return (
     <div class="screen">
       <h2>{speciesName(app, draft.speciesId)}</h2>
-      <MoveSelect app={app} label="Fast move" ids={fastIds} value={draft.fastMoveId} onPick={(id) => set({ fastMoveId: id })} />
-      <MoveSelect app={app} label="Charged move 1" ids={chargedIds} value={draft.charged1} onPick={(id) => set({ charged1: id })} />
-      <MoveSelect app={app} label="Charged move 2" ids={chargedIds} value={draft.charged2} optional onPick={(id) => set({ charged2: id })} />
+      <p class="small">{app.format.title} moves: {[draft.fastMoveId, draft.charged1, draft.charged2].filter((m) => m !== '').map((m) => moveName(app, m)).join(' · ')}</p>
       {counts && <p class="small">{counts}</p>}
       <div class="ivs">
         {(['atk', 'def', 'hp'] as const).map((k) => (
@@ -180,6 +162,8 @@ function ImportExport({ app, roster, onImport }: {
 /** Roster and team setup: add Pokémon, pick the 3 for battle (lead first), import or export JSON. */
 export function TeamScreen({ app, roster, team, onChange }: TeamScreenProps) {
   const [draftTeam, setDraftTeam] = useState<readonly number[]>([]);
+  const shown = roster.flatMap((e, i) => (app.byId.has(e.speciesId) ? [i] : []));
+  const hidden = roster.length - shown.length;
   const picked: readonly number[] = team ?? draftTeam;
 
   const setPicked = (next: readonly number[], nextRoster: readonly RosterEntry[] = roster) => {
@@ -240,8 +224,10 @@ export function TeamScreen({ app, roster, team, onChange }: TeamScreenProps) {
         <section class="screen">
           <h2>Your Pokémon</h2>
           {roster.length === 0 && <p class="small">Nothing saved yet. Add a Pokémon or import a roster.</p>}
+          {hidden > 0 && <p class="small">{hidden} of your Pokémon {hidden === 1 ? "isn't" : "aren't"} in {app.format.title} and {hidden === 1 ? 'is' : 'are'} hidden.</p>}
           <ul class="results" aria-label="Your Pokémon">
-            {roster.map((e, i) => {
+            {shown.map((i) => {
+              const e = formatEntry(app, roster[i]!);
               const name = entryName(app, e);
               const inTeam = picked.includes(i);
               return (

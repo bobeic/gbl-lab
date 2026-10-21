@@ -1,12 +1,15 @@
 import type { GameData } from '../data/types';
 import type { MetaEntry } from '../matrix/meta';
 import type { RosterEntry } from '../matrix/teamMatrix';
+import type { FormatId } from './formats';
 import { simulateRoster, type SimResult } from './builderSim';
 import type { Diag } from './teamBuilder';
 
 /** Messages between the app and the Builder's simulation worker. */
 export interface BuilderRequest {
   readonly id: number;
+  /** The meta to simulate against. */
+  readonly format: FormatId;
   readonly roster: readonly RosterEntry[];
 }
 

@@ -1,12 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { buildAppDataFile, loadAppData, normalizeName, searchSpecies } from '../src/companion';
+import { normalizeName, searchSpecies } from '../src/companion';
+import { testAppData } from './companionFixture';
 
-const app = loadAppData(buildAppDataFile(
-  JSON.parse(readFileSync('data/gamemaster.json', 'utf8')),
-  JSON.parse(readFileSync('data/rankings-1500.json', 'utf8')),
-  'test',
-));
+const app = testAppData();
 const ids = (q: string, limit?: number): string[] => searchSpecies(app.ranked, q, limit).map((r) => r.speciesId);
 
 describe('normalizeName', () => {

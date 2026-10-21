@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/pre
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TeamScreen } from '../../app/src/screens/TeamScreen';
 import type { RosterEntry } from '../../src/matrix/teamMatrix';
-import { testAppData } from '../companionFixture';
+import { testAppData, testFormats } from '../companionFixture';
 
 afterEach(cleanup);
 const app = testAppData();
@@ -23,13 +23,24 @@ function setup(roster: readonly RosterEntry[] = [], team: readonly [number, numb
 }
 
 describe('TeamScreen', () => {
+  it("in Fantasy Cup shows only the format's Pokémon, with its moves, and keeps roster indices", () => {
+    const onChange = vi.fn();
+    const roster = [three[0]!, entry('turtonator', 'INCINERATE', ['BRUTAL_SWING', 'DRAGON_CLAW']), three[2]!];
+    render(<TeamScreen app={testFormats().fantasy} roster={roster} team={null} onChange={onChange} />);
+    const list = screen.getByRole('list', { name: 'Your Pokémon' });
+    expect(within(list).queryByText('Medicham')).toBeNull();
+    expect(list.textContent).toContain('Dragon Claw · Overheat');
+    expect(screen.getByText("1 of your Pokémon isn't in Fantasy Cup and is hidden.")).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Azumarill' }));
+    expect(onChange).toHaveBeenCalledWith(roster.slice(0, 2), null);
+  });
+
   it('defaults a new Pokémon to its ranking moveset and saves it', () => {
     const onChange = setup();
     fireEvent.input(screen.getByPlaceholderText('Search Pokémon…'), { target: { value: 'medicham' } });
     fireEvent.click(screen.getByRole('button', { name: 'Medicham' }));
-    expect((screen.getByLabelText('Fast move') as HTMLSelectElement).value).toBe('PSYCHO_CUT');
-    expect((screen.getByLabelText('Charged move 1') as HTMLSelectElement).value).toBe('ICE_PUNCH');
-    expect((screen.getByLabelText('Charged move 2') as HTMLSelectElement).value).toBe('DYNAMIC_PUNCH');
+    expect(screen.getByText('Great League moves: Psycho Cut · Ice Punch · Dynamic Punch')).toBeTruthy();
+    expect(screen.queryByLabelText('Fast move')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Save Pokémon' }));
     expect(onChange).toHaveBeenCalledWith([entry('medicham', 'PSYCHO_CUT', ['ICE_PUNCH', 'DYNAMIC_PUNCH'])], null);
   });

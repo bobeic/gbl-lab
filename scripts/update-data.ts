@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { FORMATS, rankingsPath } from '../src/companion/formats';
 
 const UPSTREAM_URL = 'https://github.com/pvpoke/pvpoke.git';
 const CHECKOUT_DIR = join('.cache', 'pvpoke');
@@ -22,7 +23,7 @@ function updateData(commit: string): void {
 
   const src = join(CHECKOUT_DIR, 'src', 'data');
   copyFileSync(join(src, 'gamemaster.json'), join('data', 'gamemaster.json'));
-  copyFileSync(join(src, 'rankings', 'all', 'overall', 'rankings-1500.json'), join('data', 'rankings-1500.json'));
+  for (const f of FORMATS) copyFileSync(join(src, 'rankings', f.cup, 'overall', 'rankings-1500.json'), rankingsPath(f));
   writeFileSync(join('data', 'UPSTREAM'), `${commit}\n`);
   console.log(`Vendored PvPoke data at ${commit}`);
 }

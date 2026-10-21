@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'preact/hooks';
 import {
   formatCounts, moveAdvice, movesetInfo, opponentCard, rankSlots, ratingAt, searchSpecies, shieldAdvice, staySwitch, teamCells, typeReason,
-  type AppData, type BattleAction, type BattleSnapshot, type BattleState, type OpponentCard as Card, type SavedApp,
+  type AppData, type BattleAction, type BattleSnapshot, type BattleState, type OpponentCard as Card, type FormatState,
 } from '../../../src/companion';
 import type { Combatant } from '../../../src/engine/combatant';
 import type { Cell } from '../../../src/matrix/cell';
@@ -17,7 +17,7 @@ import { entryName, errorText, moveName } from '../names';
 export interface BattleScreenProps {
   readonly app: AppData;
   readonly roster: readonly RosterEntry[];
-  readonly team: SavedApp['team'];
+  readonly team: FormatState['team'];
   readonly battle: BattleState;
   readonly dispatch: (action: BattleAction) => void;
   readonly onGoToTeam: () => void;
@@ -33,7 +33,7 @@ interface Member {
 
 type TeamBuild = { ok: true; members: readonly Member[] } | { ok: false; error: string } | null;
 
-function buildTeam(app: AppData, roster: readonly RosterEntry[], team: SavedApp['team']): TeamBuild {
+function buildTeam(app: AppData, roster: readonly RosterEntry[], team: FormatState['team']): TeamBuild {
   if (!team) return null;
   try {
     return {

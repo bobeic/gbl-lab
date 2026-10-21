@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { metaWeights, recommendTeams, type AppData, type SavedApp, type SimResult, type TeamScore } from '../../../src/companion';
+import { metaWeights, recommendTeams, type AppData, type FormatId, type FormatState, type SimResult, type TeamScore } from '../../../src/companion';
 import type { RosterEntry } from '../../../src/matrix/teamMatrix';
 import { PokemonIcon } from '../components/PokemonIcon';
 import { entryName, errorText, speciesName } from '../names';
 
 export type Simulate = (
-  roster: readonly RosterEntry[], onProgress: (done: number, total: number) => void,
+  format: FormatId, roster: readonly RosterEntry[], onProgress: (done: number, total: number) => void,
 ) => Promise<SimResult & { readonly metaIds: readonly string[] }>;
 
 export interface BuilderScreenProps {
   readonly app: AppData;
+  /** The shared collection with this format's moves; only the format's ranked Pokémon are simulated. */
   readonly roster: readonly RosterEntry[];
-  readonly team: SavedApp['team'];
+  readonly team: FormatState['team'];
   readonly simulate: Simulate;
   /** Meta species ids weighted extra in the score. */
   readonly priorities: readonly string[];
@@ -29,7 +30,7 @@ const ROLE_SHIELDS = ['1-1', '1-1', '0-0'] as const;
 const SHOWN_THREATS = 8;
 
 function Details({ app, roster, team, sel, metaIds, onUseTeam }: {
-  readonly app: AppData; readonly roster: readonly RosterEntry[]; readonly team: SavedApp['team'];
+  readonly app: AppData; readonly roster: readonly RosterEntry[]; readonly team: FormatState['team'];
   readonly sel: TeamScore; readonly metaIds: readonly string[]; readonly onUseTeam: BuilderScreenProps['onUseTeam'];
 }) {
   const current = team !== null && team.every((t, i) => t === sel.order[i]);
@@ -69,9 +70,10 @@ function Details({ app, roster, team, sel, metaIds, onUseTeam }: {
 /** Recommend the best teams of three from the roster, simulated off the main thread by `simulate`. */
 export function BuilderScreen({ app, roster, team, simulate, priorities, onPrioritiesChange, onUseTeam }: BuilderScreenProps) {
   // Results and pins are tagged with the roster they belong to, so the render before the effect never draws them against a new roster.
-  const [tagged, setTagged] = useState<{ roster: readonly RosterEntry[]; sim: Sim }>({ roster, sim: { status: 'running', done: 0, total: roster.length } });
+  const eligible = useMemo(() => roster.flatMap((e, i) => (app.byId.has(e.speciesId) ? [i] : [])), [roster, app]);
+  const [tagged, setTagged] = useState<{ roster: readonly RosterEntry[]; sim: Sim }>({ roster, sim: { status: 'running', done: 0, total: eligible.length } });
   const [pinned, setPinned] = useState<{ roster: readonly RosterEntry[]; list: readonly number[] }>({ roster, list: [] });
-  const sim: Sim = tagged.roster === roster ? tagged.sim : { status: 'running', done: 0, total: roster.length };
+  const sim: Sim = tagged.roster === roster ? tagged.sim : { status: 'running', done: 0, total: eligible.length };
   const pins = pinned.roster === roster ? pinned.list : [];
   const [selected, setSelected] = useState(0);
   const latest = useRef(roster);
@@ -81,8 +83,9 @@ export function BuilderScreen({ app, roster, team, simulate, priorities, onPrior
     setSelected(0);
     const live = () => latest.current === roster;
     const setSim = (next: Sim) => setTagged({ roster, sim: next });
-    simulate(roster, (done, total) => live() && setSim({ status: 'running', done, total }))
-      .then((result) => live() && setSim({ status: 'done', result }))
+    simulate(app.format.id, eligible.map((i) => roster[i]!), (done, total) => live() && setSim({ status: 'running', done, total }))
+      // Candidates come back indexed into the eligible list; the rest of the screen uses roster indices.
+      .then((result) => live() && setSim({ status: 'done', result: { ...result, candidates: result.candidates.map((c) => ({ ...c, index: eligible[c.index]! })) } }))
       .catch((err: unknown) => live() && setSim({ status: 'error', message: errorText(err) }));
   }, [roster]);
 
@@ -127,7 +130,7 @@ export function BuilderScreen({ app, roster, team, simulate, priorities, onPrior
   return (
     <div class="builder">
       <section class="screen bar-top">
-        <p class="small">Your collection (from Team tab): {roster.length} Pokémon</p>
+        <p class="small">Your collection (from Team tab): {eligible.length} Pokémon in {app.format.title}</p>
         <div class="chips">
           {pins.map((i) => (
             <span key={i} class="chip">
