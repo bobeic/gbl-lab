@@ -82,6 +82,8 @@ export function App({ fetchData = fetchAppData, store = browserStore(), simulate
           roster={saved.roster}
           team={saved.team}
           simulate={simulate}
+          priorities={saved.priorities}
+          onPrioritiesChange={(priorities) => dispatch({ type: 'setPriorities', priorities })}
           onUseTeam={(team) => dispatch({ type: 'setTeam', roster: saved.roster, team })}
         />
       )}

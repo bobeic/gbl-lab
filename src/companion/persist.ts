@@ -13,13 +13,15 @@ export interface SavedApp {
   /** Indices into roster, lead first; null until the user picks a team. */
   readonly team: readonly [number, number, number] | null;
   readonly battle: BattleState;
+  /** Meta species ids the Builder weights extra, e.g. ones the user meets a lot. */
+  readonly priorities: readonly string[];
 }
 
 export const STORAGE_KEY = 'gbl-companion';
 
 /** An empty roster, no team and a fresh battle. */
 export function defaultSavedApp(): SavedApp {
-  return { version: 1, roster: [], team: null, battle: initialBattle() };
+  return { version: 1, roster: [], team: null, battle: initialBattle(), priorities: [] };
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -56,7 +58,9 @@ export function loadSaved(store: KeyValueStore | null): SavedApp {
     if (v.team !== null && !isTeam(v.team, roster.length)) return defaultSavedApp();
     // A bad battle only costs the battle in progress, not the roster the user typed in.
     const battle = isBattle(v.battle) ? v.battle : initialBattle();
-    return { version: 1, roster, team: v.team, battle };
+    // Missing on saves from before priorities existed.
+    const priorities = Array.isArray(v.priorities) && v.priorities.every((p) => typeof p === 'string') ? v.priorities : [];
+    return { version: 1, roster, team: v.team, battle, priorities };
   } catch {
     return defaultSavedApp();
   }

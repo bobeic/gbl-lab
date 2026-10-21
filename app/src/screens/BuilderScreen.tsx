@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { recommendTeams, type AppData, type SavedApp, type SimResult, type TeamScore } from '../../../src/companion';
+import { metaWeights, recommendTeams, type AppData, type SavedApp, type SimResult, type TeamScore } from '../../../src/companion';
 import type { RosterEntry } from '../../../src/matrix/teamMatrix';
 import { PokemonIcon } from '../components/PokemonIcon';
 import { entryName, errorText, speciesName } from '../names';
@@ -13,6 +13,9 @@ export interface BuilderScreenProps {
   readonly roster: readonly RosterEntry[];
   readonly team: SavedApp['team'];
   readonly simulate: Simulate;
+  /** Meta species ids weighted extra in the score. */
+  readonly priorities: readonly string[];
+  readonly onPrioritiesChange: (priorities: readonly string[]) => void;
   readonly onUseTeam: (team: readonly [number, number, number]) => void;
 }
 
@@ -48,7 +51,7 @@ function Details({ app, roster, team, sel, metaIds, onUseTeam }: {
         <span class="label">Consistency {Math.round(sel.consistency)}</span>
         <span class="small">{Math.round(sel.consistency)}% of those wins still hold at 0-0 and 2-2 shields</span>
         <span class="label">Safety {Math.round(sel.safety)}</span>
-        <span class="small">{sel.safeCounters} hard counters to the safe switch · {sel.topUncovered} of the top 10 uncovered</span>
+        <span class="small">{sel.safeCounters} hard counters to the safe switch · {sel.keyUncovered} of the top 10 and your priorities uncovered</span>
       </div>
       <h3 class="label">Threats</h3>
       {threats.length === 0 ? <p class="small">None</p> : (
@@ -64,7 +67,7 @@ function Details({ app, roster, team, sel, metaIds, onUseTeam }: {
 }
 
 /** Recommend the best teams of three from the roster, simulated off the main thread by `simulate`. */
-export function BuilderScreen({ app, roster, team, simulate, onUseTeam }: BuilderScreenProps) {
+export function BuilderScreen({ app, roster, team, simulate, priorities, onPrioritiesChange, onUseTeam }: BuilderScreenProps) {
   // Results and pins are tagged with the roster they belong to, so the render before the effect never draws them against a new roster.
   const [tagged, setTagged] = useState<{ roster: readonly RosterEntry[]; sim: Sim }>({ roster, sim: { status: 'running', done: 0, total: roster.length } });
   const [pinned, setPinned] = useState<{ roster: readonly RosterEntry[]; list: readonly number[] }>({ roster, list: [] });
@@ -84,8 +87,14 @@ export function BuilderScreen({ app, roster, team, simulate, onUseTeam }: Builde
   }, [roster]);
 
   const candidates = sim.status === 'done' ? sim.result.candidates : [];
-  const teams = useMemo(() => recommendTeams(candidates, pins), [candidates, pins]);
+  const metaIds = sim.status === 'done' ? sim.result.metaIds : [];
+  const weighting = useMemo(
+    () => metaWeights(metaIds.length, priorities.map((id) => metaIds.indexOf(id)).filter((o) => o >= 0)),
+    [metaIds, priorities],
+  );
+  const teams = useMemo(() => recommendTeams(candidates, pins, weighting), [candidates, pins, weighting]);
   const setPinsAndReset = (next: readonly number[]) => { setPinned({ roster, list: next }); setSelected(0); };
+  const setPrioritiesAndReset = (next: readonly string[]) => { onPrioritiesChange(next); setSelected(0); };
   const name = (i: number) => entryName(app, roster[i]!);
 
   let body;
@@ -131,6 +140,20 @@ export function BuilderScreen({ app, roster, team, simulate, onUseTeam }: Builde
             onChange={(e) => { const v = e.currentTarget.value; if (v !== '') setPinsAndReset([...pins, Number(v)]); }}>
             <option value="">Pin a Pokémon…</option>
             {candidates.filter((c) => !pins.includes(c.index)).map((c) => <option key={c.index} value={String(c.index)}>{name(c.index)}</option>)}
+          </select>
+        </div>
+        <div class="chips">
+          {priorities.map((id) => (
+            <span key={id} class="chip">
+              <PokemonIcon speciesId={id} />{speciesName(app, id)}
+              <button type="button" class="btn icon" aria-label={`Unprioritize ${speciesName(app, id)}`}
+                onClick={() => setPrioritiesAndReset(priorities.filter((p) => p !== id))}>✕</button>
+            </span>
+          ))}
+          <select class="field" aria-label="Prioritize a meta Pokémon" value="" disabled={metaIds.length === 0}
+            onChange={(e) => { const v = e.currentTarget.value; if (v !== '') setPrioritiesAndReset([...priorities, v]); }}>
+            <option value="">Prioritize a meta Pokémon…</option>
+            {metaIds.filter((id) => !priorities.includes(id)).map((id) => <option key={id} value={id}>{speciesName(app, id)}</option>)}
           </select>
         </div>
         {sim.status === 'done' && sim.result.skipped.length > 0 && (
