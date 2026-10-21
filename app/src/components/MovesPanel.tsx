@@ -20,12 +20,17 @@ function firstThrowLine(moves: readonly MyMoveInfo[], firstId: string | null): s
   return `Throw ${first.name} first`;
 }
 
-/** My on-field Pokémon's charged moves against their Pokémon: damage, type multipliers, side effects. */
+/** My on-field Pokémon's fast move and charged moves against their Pokémon: damage, type multipliers, side effects. */
 export function MovesPanel({ myName, theirName, advice }: { readonly myName: string; readonly theirName: string; readonly advice: MoveAdvice }) {
   const line = firstThrowLine(advice.moves, advice.firstThrow);
   return (
     <section class="me" aria-label="Your moves">
       <div class="label">{myName} vs {theirName}</div>
+      <div class="row">
+        <span>{advice.fast.name}</span>
+        <span class="small">{advice.fast.energyGain} energy / {advice.fast.turns} turns</span>
+      </div>
+      <p class="small">{advice.fast.damage} damage · ~{advice.fast.percent}% of their HP</p>
       {advice.moves.map((m) => (
         <div key={m.id}>
           <div class="row">

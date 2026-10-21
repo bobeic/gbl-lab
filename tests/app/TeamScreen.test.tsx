@@ -35,23 +35,26 @@ describe('TeamScreen', () => {
     expect(onChange).toHaveBeenCalledWith(roster.slice(0, 2), null);
   });
 
-  it('defaults a new Pokémon to its ranking moveset and saves it', () => {
+  it('saves a picked Pokémon straight away with its ranking moveset', () => {
     const onChange = setup();
     fireEvent.input(screen.getByPlaceholderText('Search Pokémon…'), { target: { value: 'medicham' } });
     fireEvent.click(screen.getByRole('button', { name: 'Medicham' }));
-    expect(screen.getByText('Great League moves: Psycho Cut · Ice Punch · Dynamic Punch')).toBeTruthy();
-    expect(screen.queryByLabelText('Fast move')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Save Pokémon' }));
     expect(onChange).toHaveBeenCalledWith([entry('medicham', 'PSYCHO_CUT', ['ICE_PUNCH', 'DYNAMIC_PUNCH'])], null);
   });
 
-  it('shows an inline error and keeps the form when saving an unsupported Pokémon', () => {
+  it('saves the top search result on Enter', () => {
+    const onChange = setup();
+    const search = screen.getByPlaceholderText('Search Pokémon…');
+    fireEvent.input(search, { target: { value: 'medicham' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledWith([entry('medicham', 'PSYCHO_CUT', ['ICE_PUNCH', 'DYNAMIC_PUNCH'])], null);
+  });
+
+  it('shows an inline error when picking an unsupported Pokémon', () => {
     const onChange = setup();
     fireEvent.input(screen.getByPlaceholderText('Search Pokémon…'), { target: { value: 'aegis' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aegislash (Blade)' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save Pokémon' }));
     expect(screen.getByRole('alert').textContent).toMatch(/UnsupportedPokemonError/);
-    expect(screen.getByRole('button', { name: 'Save Pokémon' })).toBeTruthy();
     expect(onChange).not.toHaveBeenCalled();
   });
 

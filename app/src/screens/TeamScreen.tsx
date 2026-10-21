@@ -1,8 +1,8 @@
 import { useState } from 'preact/hooks';
-import { defaultRosterEntry, formatCounts, formatEntry, movesetInfo, searchSpecies, type AppData, type FormatState } from '../../../src/companion';
+import { defaultRosterEntry, formatEntry, searchSpecies, type AppData, type FormatState } from '../../../src/companion';
 import { buildRosterCombatant, parseRoster, type RosterEntry } from '../../../src/matrix/teamMatrix';
 import { PokemonIcon } from '../components/PokemonIcon';
-import { entryName, errorText, moveName, speciesName } from '../names';
+import { entryName, errorText, moveName } from '../names';
 
 type Team = FormatState['team'];
 
@@ -14,102 +14,27 @@ export interface TeamScreenProps {
   readonly onChange: (roster: readonly RosterEntry[], team: Team) => void;
 }
 
-interface Draft {
-  readonly speciesId: string;
-  readonly fastMoveId: string;
-  readonly charged1: string;
-  readonly charged2: string;
-  readonly atk: string;
-  readonly def: string;
-  readonly hp: string;
-  readonly level: string;
-  readonly label: string;
-}
-
-function draftFor(app: AppData, speciesId: string): Draft {
-  const e = defaultRosterEntry(app, speciesId);
-  return { speciesId, fastMoveId: e.fastMoveId, charged1: e.chargedMoveIds[0] ?? '', charged2: e.chargedMoveIds[1] ?? '', atk: '', def: '', hp: '', level: '', label: '' };
-}
-
-/** Turn the form into a roster entry; blank IVs and level mean "use the defaults". */
-function entryFromDraft(d: Draft): RosterEntry {
-  const ivText = [d.atk, d.def, d.hp].map((s) => s.trim());
-  const filled = ivText.filter((s) => s !== '').length;
-  if (filled !== 0 && filled !== 3) throw new Error('Enter all three IVs, or leave all three blank for the default IVs');
-  const ivs = filled === 3 ? { atk: Number(ivText[0]), def: Number(ivText[1]), hp: Number(ivText[2]) } : undefined;
-  const level = d.level.trim() === '' ? undefined : Number(d.level);
-  const label = d.label.trim() === '' ? undefined : d.label.trim();
-  return {
-    speciesId: d.speciesId,
-    fastMoveId: d.fastMoveId,
-    chargedMoveIds: [d.charged1, d.charged2].filter((m) => m !== ''),
-    ...(ivs && { ivs }),
-    ...(level !== undefined && { level }),
-    ...(label !== undefined && { label }),
-  };
-}
-
+/** Pick a Pokémon to add it with its ranking moveset and default IVs. */
 function AddPokemon({ app, onSave }: { readonly app: AppData; readonly onSave: (entry: RosterEntry) => string | null }) {
   const [query, setQuery] = useState('');
-  const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const set = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
-
-  if (!draft) {
-    return (
-      <div class="screen">
-        <h2>Add a Pokémon</h2>
-        <input class="search" type="search" placeholder="Search Pokémon…" aria-label="Search Pokémon" value={query} onInput={(e) => setQuery(e.currentTarget.value)} />
-        <div class="results">
-          {searchSpecies(app.ranked, query).map((r) => (
-            <button key={r.speciesId} type="button" class="result" onClick={() => { setDraft(draftFor(app, r.speciesId)); setQuery(''); setError(null); }}><PokemonIcon speciesId={r.speciesId} />{r.name}</button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  let counts: string | null = null;
-  try {
-    const info = movesetInfo(app.gd, draft.fastMoveId, [draft.charged1, draft.charged2].filter((m) => m !== ''));
-    counts = info.charged.map((c) => `${c.name} ${formatCounts(c.counts)}`).join(' · ');
-  } catch {
-    counts = null;
-  }
-  const save = () => {
-    try {
-      const message = onSave(entryFromDraft(draft));
-      setError(message);
-      if (message === null) setDraft(null);
-    } catch (err) {
-      setError(errorText(err));
-    }
+  const results = searchSpecies(app.ranked, query);
+  const pick = (speciesId: string) => {
+    const message = onSave(defaultRosterEntry(app, speciesId));
+    setError(message);
+    if (message === null) setQuery('');
   };
+
   return (
     <div class="screen">
-      <h2>{speciesName(app, draft.speciesId)}</h2>
-      <p class="small">{app.format.title} moves: {[draft.fastMoveId, draft.charged1, draft.charged2].filter((m) => m !== '').map((m) => moveName(app, m)).join(' · ')}</p>
-      {counts && <p class="small">{counts}</p>}
-      <div class="ivs">
-        {(['atk', 'def', 'hp'] as const).map((k) => (
-          <label key={k} class="small">
-            {k.toUpperCase()} IV
-            <input class="field" type="number" inputMode="numeric" min={0} max={15} placeholder="default" value={draft[k]} onInput={(e) => set({ [k]: e.currentTarget.value })} />
-          </label>
-        ))}
-        <label class="small">
-          Level
-          <input class="field" type="number" inputMode="decimal" min={1} max={50} step={0.5} placeholder="auto" value={draft.level} onInput={(e) => set({ level: e.currentTarget.value })} />
-        </label>
-      </div>
-      <label class="small">
-        Label (optional)
-        <input class="field" type="text" value={draft.label} onInput={(e) => set({ label: e.currentTarget.value })} />
-      </label>
+      <h2>Add a Pokémon</h2>
+      <input class="search" type="search" placeholder="Search Pokémon…" aria-label="Search Pokémon" value={query} onInput={(e) => setQuery(e.currentTarget.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && results[0]) pick(results[0].speciesId); }} />
       {error && <p class="error" role="alert">{error}</p>}
-      <div class="btns">
-        <button type="button" class="btn primary" onClick={save}>Save Pokémon</button>
-        <button type="button" class="btn" onClick={() => { setDraft(null); setError(null); }}>Cancel</button>
+      <div class="results">
+        {results.map((r) => (
+          <button key={r.speciesId} type="button" class="result" onClick={() => pick(r.speciesId)}><PokemonIcon speciesId={r.speciesId} />{r.name}</button>
+        ))}
       </div>
     </div>
   );
