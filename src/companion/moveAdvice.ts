@@ -1,5 +1,5 @@
 import { effectiveness } from '../data/typeChart';
-import type { ChargedMove, GameData, MoveBuffs, StatPair } from '../data/types';
+import type { ChargedMove, GameData, Move, MoveBuffs, StatPair } from '../data/types';
 import { moveDamage, type Combatant } from '../engine/combatant';
 import { PvPokeLikePolicy } from '../policy/pvpoke';
 import { runMatchup } from '../sim/runMatchup';
@@ -22,8 +22,18 @@ export interface MyMoveInfo {
   readonly effect: string | null;
 }
 
+/** A move's unshielded, unbuffed hit as raw damage and a rounded share of the target's max HP. */
+export interface Hit {
+  readonly damage: number;
+  readonly percent: number;
+}
+
 export interface MoveAdvice {
+  /** My fast move against them. */
+  readonly fast: Hit & { readonly name: string; readonly energyGain: number; readonly turns: number };
   readonly moves: readonly MyMoveInfo[];
+  /** Their charged moves against me, by move id. */
+  readonly theirs: ReadonlyMap<string, Hit>;
   /** The first charged move my side throws in the simulated matchup, or null if it never throws one. */
   readonly firstThrow: string | null;
 }
@@ -45,17 +55,23 @@ function effectText(buffs: MoveBuffs | undefined): string | null {
 
 /** My charged moves' damage and side effects against this opponent, and which one the engine throws first. */
 export function moveAdvice(gd: GameData, me: Combatant, opp: Combatant, shields: readonly [number, number]): MoveAdvice {
+  const hit = (from: Combatant, to: Combatant, m: Move): Hit => {
+    const damage = moveDamage(from, 0, to, 0, m, gd.buffDivisor);
+    return { damage, percent: Math.round((100 * damage) / to.stats.hp) };
+  };
+  const f = me.fastMove;
+  const fast = { name: f.name, energyGain: f.energyGain, turns: f.turns, ...hit(me, opp, f) };
+  const theirs = new Map(opp.chargedMoves.map((m) => [m.id, hit(opp, me, m)]));
   const moves = me.chargedMoves.map((m: ChargedMove): MyMoveInfo => {
-    const damage = moveDamage(me, 0, opp, 0, m, gd.buffDivisor);
     return {
       id: m.id, name: m.name, energy: m.energy,
       counts: countSequence(me.fastMove.energyGain, m.energy),
-      damage, percent: Math.round((100 * damage) / opp.stats.hp),
+      ...hit(me, opp, m),
       effectiveness: effectiveness(m.type, opp.types), stab: me.types.includes(m.type),
       effect: effectText(m.buffs),
     };
   });
   const run = runMatchup(gd, me, opp, { shields, policies: [new PvPokeLikePolicy(), new PvPokeLikePolicy()] });
   const first = run.events.find((e) => e.kind === 'charged' && e.side === 0);
-  return { moves, firstThrow: first?.kind === 'charged' ? first.moveId : null };
+  return { fast, moves, theirs, firstThrow: first?.kind === 'charged' ? first.moveId : null };
 }

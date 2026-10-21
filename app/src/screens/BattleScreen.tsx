@@ -116,6 +116,7 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
 
   const focusSearch = () => searchRef.current?.focus();
   const results = searchSpecies(app.ranked, query);
+  const addOpponent = (speciesId: string) => { dispatch({ type: 'addOpponent', speciesId }); setQuery(''); };
   const theirName = card?.name ?? '—';
 
   return (
@@ -137,11 +138,12 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
           autoComplete="off"
           value={query}
           onInput={(e) => setQuery(e.currentTarget.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && results[0]) addOpponent(results[0].speciesId); }}
         />
         {results.length > 0 && (
           <div class="results">
             {results.map((r) => (
-              <button key={r.speciesId} type="button" class="result" onClick={() => { dispatch({ type: 'addOpponent', speciesId: r.speciesId }); setQuery(''); }}>
+              <button key={r.speciesId} type="button" class="result" onClick={() => addOpponent(r.speciesId)}>
                 <PokemonIcon speciesId={r.speciesId} />{r.name}
               </button>
             ))}
@@ -163,7 +165,7 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
             ))}
           </div>
         )}
-        {card && <OpponentCard card={card} />}
+        {card && <OpponentCard card={card} vsMe={moves && !theirsFainted ? moves.theirs : undefined} />}
         {cardError && <p class="error" role="alert">{cardError}</p>}
         {moves && onFieldMember && card && !theirsFainted && <MovesPanel myName={onFieldMember.name} theirName={card.name} advice={moves} />}
       </section>
