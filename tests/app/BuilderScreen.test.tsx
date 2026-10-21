@@ -27,10 +27,15 @@ function fake(result: SimResult): Simulate {
   };
 }
 
-function setup(simulate: Simulate, r: readonly RosterEntry[] = roster, team: readonly [number, number, number] | null = null) {
+function setup(
+  simulate: Simulate, r: readonly RosterEntry[] = roster, team: readonly [number, number, number] | null = null, priorities: readonly string[] = [],
+) {
   const onUseTeam = vi.fn();
-  const view = render(<BuilderScreen app={app} roster={r} team={team} simulate={simulate} onUseTeam={onUseTeam} />);
-  return { onUseTeam, view };
+  const onPrioritiesChange = vi.fn();
+  const view = render(
+    <BuilderScreen app={app} roster={r} team={team} simulate={simulate} priorities={priorities} onPrioritiesChange={onPrioritiesChange} onUseTeam={onUseTeam} />,
+  );
+  return { onUseTeam, onPrioritiesChange, view };
 }
 
 const rows = async () => within(await screen.findByRole('list', { name: 'Best teams' })).getAllByRole('listitem');
@@ -65,6 +70,21 @@ describe('BuilderScreen', () => {
     expect(screen.getByRole('button', { name: 'Unpin Registeel' })).toBeTruthy();
   });
 
+  it('prioritizes meta Pokémon and shows them as removable chips', async () => {
+    const { onPrioritiesChange } = setup(fake({ candidates: four, skipped: [] }));
+    await rows();
+    fireEvent.change(screen.getByLabelText('Prioritize a meta Pokémon'), { target: { value: metaIds[8] } });
+    expect(onPrioritiesChange).toHaveBeenCalledWith([metaIds[8]]);
+    cleanup();
+
+    const again = setup(fake({ candidates: four, skipped: [] }), roster, null, [metaIds[8]!]);
+    await rows();
+    const name = app.ranked[8]!.name;
+    fireEvent.click(screen.getByRole('button', { name: `Unprioritize ${name}` }));
+    expect(again.onPrioritiesChange).toHaveBeenCalledWith([]);
+    expect(screen.getByText(/of the top 10 and your priorities uncovered$/)).toBeTruthy();
+  });
+
   it('says no team fits the pins', async () => {
     const shadow = [...roster.slice(0, 3), entry('medicham_shadow')];
     setup(fake({ candidates: [...four.slice(0, 3), cand(3, 308, [8])], skipped: [] }), shadow);
@@ -93,9 +113,9 @@ describe('BuilderScreen', () => {
     expect(screen.getByRole('button', { name: 'Unpin Lanturn' })).toBeTruthy();
 
     const longer = [...roster, entry('swampert')];
-    view.rerender(<BuilderScreen app={app} roster={longer} team={null} simulate={simulate} onUseTeam={vi.fn()} />);
+    view.rerender(<BuilderScreen app={app} roster={longer} team={null} simulate={simulate} priorities={[]} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
     const shorter = roster.slice(0, 3);
-    view.rerender(<BuilderScreen app={app} roster={shorter} team={null} simulate={simulate} onUseTeam={vi.fn()} />);
+    view.rerender(<BuilderScreen app={app} roster={shorter} team={null} simulate={simulate} priorities={[]} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
     expect((await rows()).length).toBe(1);
 
     resolveStale({ candidates: [...four, cand(4, 260, [9])], skipped: [], metaIds });
@@ -111,7 +131,7 @@ describe('BuilderScreen', () => {
     const { view } = setup(simulate);
     await rows();
     fireEvent.change(screen.getByLabelText('Pin a Pokémon'), { target: { value: '3' } });
-    view.rerender(<BuilderScreen app={app} roster={roster.slice(0, 3)} team={null} simulate={simulate} onUseTeam={vi.fn()} />);
+    view.rerender(<BuilderScreen app={app} roster={roster.slice(0, 3)} team={null} simulate={simulate} priorities={[]} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
     expect(screen.getByText('Simulating 0 of 3…')).toBeTruthy();
     expect(screen.queryByRole('list', { name: 'Best teams' })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Unpin/ })).toBeNull();

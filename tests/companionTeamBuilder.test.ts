@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recommendTeams, scoreOrder, type Candidate, type Diag } from '../src/companion';
+import { metaWeights, recommendTeams, scoreOrder, type Candidate, type Diag } from '../src/companion';
 
 const META = 12;
 const LOSE: Diag = [400, 400, 400];
@@ -13,6 +13,8 @@ function ratings(fill: Diag, wins: Record<number, Diag> = {}): Diag[] {
   return Array.from({ length: META }, (_, o) => wins[o] ?? fill);
 }
 
+const UNIFORM = { weights: Array<number>(META).fill(1), key: Array.from({ length: META }, (_, o) => o < 10) };
+
 const range = (from: number, to: number, d: Diag): Record<number, Diag> =>
   Object.fromEntries(Array.from({ length: to - from + 1 }, (_, i) => [from + i, d]));
 
@@ -22,7 +24,7 @@ describe('scoreOrder', () => {
 
   it('scores coverage from role scenarios', () => {
     const lead = cand(0, 1, ratings(LOSE, range(0, 3, [400, 600, 400])));
-    const s = scoreOrder([lead, safe, closer]);
+    const s = scoreOrder([lead, safe, closer], UNIFORM);
     expect(s.covered).toBe(6);
     expect(s.coverage).toBe(50);
     expect(s.roleWins).toEqual([4, 0, 2]);
@@ -40,23 +42,61 @@ describe('scoreOrder', () => {
     expect(s.coverage).toBe(0);
   });
 
-  it('safety loses 20 per safe-switch counter and 10 per uncovered top-10, floored at 0', () => {
+  it('safety loses 8 per % of the meta countering the safe switch and 10 per uncovered top-10, floored at 0', () => {
     // Lead covers everything except 7, 8 and 9 (all in the top 10).
     const lead = cand(0, 1, ratings([600, 600, 600], range(7, 9, LOSE)));
-    const twoCounters = cand(1, 2, ratings(LOSE, range(10, 11, [400, 250, 400])));
-    const s = scoreOrder([lead, twoCounters, cand(2, 3, ratings(LOSE))]);
-    expect(s.safeCounters).toBe(2);
-    expect(s.topUncovered).toBe(3);
-    expect(s.safety).toBe(30);
+    const oneCounter = cand(1, 2, ratings(LOSE, range(11, 11, [400, 250, 400])));
+    const s = scoreOrder([lead, oneCounter, cand(2, 3, ratings(LOSE))], UNIFORM);
+    expect(s.safeCounters).toBe(1);
+    expect(s.keyUncovered).toBe(3);
+    expect(s.safety).toBeCloseTo(100 - 8 * (100 / 12) - 30);
 
-    const sixCounters = cand(1, 2, ratings(LOSE, range(0, 5, [400, 250, 400])));
-    expect(scoreOrder([lead, sixCounters, cand(2, 3, ratings(LOSE))]).safety).toBe(0);
+    const twoCounters = cand(1, 2, ratings(LOSE, range(10, 11, [400, 250, 400])));
+    expect(scoreOrder([lead, twoCounters, cand(2, 3, ratings(LOSE))], UNIFORM).safety).toBe(0);
+  });
+
+  it('a counter near the top of the meta costs more safety than one near the bottom', () => {
+    const lead = cand(0, 1, ratings([600, 600, 600]));
+    const counteredBy = (o: number) => cand(1, 2, ratings(LOSE, { [o]: [400, 250, 400] }));
+    const safety = (o: number) => scoreOrder([lead, counteredBy(o), cand(2, 3, ratings(LOSE))]).safety;
+    expect(safety(0)).toBeLessThan(safety(11));
   });
 
   it('score is 0.5 coverage + 0.25 consistency + 0.25 safety', () => {
     const lead = cand(0, 1, ratings(LOSE, { ...range(0, 3, [400, 600, 400]), ...range(0, 1, [600, 600, 600]) }));
     const s = scoreOrder([lead, safe, closer]);
     expect(s.score).toBeCloseTo(0.5 * s.coverage + 0.25 * s.consistency + 0.25 * s.safety);
+  });
+});
+
+describe('meta weighting', () => {
+  const lead = cand(0, 1, ratings(LOSE, range(0, 0, [400, 600, 400])));
+  const tail = cand(0, 1, ratings(LOSE, range(11, 11, [400, 600, 400])));
+  const rest = [cand(1, 2, ratings(LOSE)), cand(2, 3, ratings(LOSE))] as const;
+
+  it('weights coverage toward the top of the meta', () => {
+    expect(scoreOrder([lead, ...rest]).coverage).toBeGreaterThan(scoreOrder([tail, ...rest]).coverage);
+    const w = metaWeights(META).weights;
+    expect(scoreOrder([lead, ...rest]).coverage).toBeCloseTo((w[0]! / w.reduce((a, b) => a + b)) * 100);
+  });
+
+  it('boosts priorities and counts them as key threats', () => {
+    const w = metaWeights(META, [11]);
+    expect(w.weights[11]).toBeCloseTo(3 * metaWeights(META).weights[11]!);
+    expect(w.key[11]).toBe(true);
+    expect(w.key[10]).toBe(false);
+    // Neither covers 10 or 11; marking 11 a priority costs safety.
+    expect(scoreOrder([lead, ...rest], w).keyUncovered).toBe(scoreOrder([lead, ...rest]).keyUncovered + 1);
+  });
+
+  it('a priority can flip which team wins', () => {
+    // a covers only #2, b covers only #12.
+    const a = cand(0, 1, ratings(LOSE, range(1, 1, [600, 600, 600])));
+    const b = cand(3, 4, ratings(LOSE, range(11, 11, [600, 600, 600])));
+    const pool = [a, ...rest, b];
+    const best = (pr: number[]) => recommendTeams(pool, [1, 2], metaWeights(META, pr))[0]!.order;
+    expect(best([])).toContain(0);
+    expect(best([11])).toContain(3);
   });
 });
 
