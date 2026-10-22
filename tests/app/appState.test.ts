@@ -38,4 +38,11 @@ describe('appReducer', () => {
     // Adding one changes no indices.
     expect(appReducer(state, { type: 'setTeam', roster: [...roster, entry('altaria')], team: [1, 2, 3] }).byFormat.fantasy.team).toEqual([4, 0, 3]);
   });
+
+  it('sets and clears a seen moveset in the current format only', () => {
+    const set = appReducer(state, { type: 'setMoves', speciesId: 'turtonator', moveset: ['INCINERATE', 'BRUTAL_SWING', 'OVERHEAT'] });
+    expect(set.byFormat.great.moves).toEqual({ turtonator: ['INCINERATE', 'BRUTAL_SWING', 'OVERHEAT'] });
+    expect(set.byFormat.fantasy).toBe(state.byFormat.fantasy);
+    expect(appReducer(set, { type: 'setMoves', speciesId: 'turtonator', moveset: null }).byFormat.great.moves).toEqual({});
+  });
 });

@@ -12,10 +12,10 @@ describe('workerSimulate', () => {
       constructor() { workers.push(this); }
     });
     const { workerSimulate } = await import('../../app/src/builderClient');
-    const pending = workerSimulate('great', [], () => {});
+    const pending = workerSimulate('great', [], () => {}, {});
     workers[0]!.onerror!({ message: 'failed to load' });
     await expect(pending).rejects.toThrow(/worker/i);
-    void workerSimulate('great', [], () => {}).catch(() => {});
+    void workerSimulate('great', [], () => {}, {}).catch(() => {});
     expect(workers.length).toBe(2);
   });
 });

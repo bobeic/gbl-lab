@@ -12,7 +12,7 @@ const medicham = { speciesId: 'medicham', fastMoveId: 'COUNTER', chargedMoveIds:
 describe('handleRequest', () => {
   it('posts progress then done with meta ids', () => {
     const posts: BuilderReply[] = [];
-    handleRequest(gd, meta, new Map(), { id: 7, format: 'great', roster: [medicham] }, (r) => posts.push(r));
+    handleRequest(gd, meta, new Map(), { id: 7, format: 'great', moves: {}, roster: [medicham] }, (r) => posts.push(r));
     expect(posts.map((p) => p.type)).toEqual(['progress', 'done']);
     expect(posts[0]).toEqual({ id: 7, type: 'progress', done: 1, total: 1 });
     const done = posts[1]!;
@@ -25,7 +25,7 @@ describe('handleRequest', () => {
   it('posts an error instead of throwing', () => {
     const bad: MetaEntry[] = [{ ...meta[0]!, speciesId: 'not_a_pokemon' }];
     const posts: BuilderReply[] = [];
-    expect(() => handleRequest(gd, bad, new Map(), { id: 3, format: 'great', roster: [medicham] }, (r) => posts.push(r))).not.toThrow();
+    expect(() => handleRequest(gd, bad, new Map(), { id: 3, format: 'great', moves: {}, roster: [medicham] }, (r) => posts.push(r))).not.toThrow();
     expect(posts).toEqual([{ id: 3, type: 'error', message: expect.any(String) }]);
   });
 });

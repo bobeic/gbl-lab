@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { metaWeights, recommendTeams, type AppData, type FormatId, type FormatState, type SimResult, type TeamScore } from '../../../src/companion';
+import { metaWeights, recommendTeams, type AppData, type FormatId, type FormatState, type MoveOverrides, type SimResult, type TeamScore } from '../../../src/companion';
 import type { RosterEntry } from '../../../src/matrix/teamMatrix';
 import { PokemonIcon } from '../components/PokemonIcon';
 import { entryName, errorText, speciesName } from '../names';
 
 export type Simulate = (
-  format: FormatId, roster: readonly RosterEntry[], onProgress: (done: number, total: number) => void,
+  format: FormatId, roster: readonly RosterEntry[], onProgress: (done: number, total: number) => void, moves: MoveOverrides,
 ) => Promise<SimResult & { readonly metaIds: readonly string[] }>;
 
 export interface BuilderScreenProps {
@@ -16,6 +16,8 @@ export interface BuilderScreenProps {
   readonly simulate: Simulate;
   /** Meta species ids weighted extra in the score. */
   readonly priorities: readonly string[];
+  /** Opponent movesets the meta uses instead of PvPoke's. */
+  readonly moves: MoveOverrides;
   readonly onPrioritiesChange: (priorities: readonly string[]) => void;
   readonly onUseTeam: (team: readonly [number, number, number]) => void;
 }
@@ -68,26 +70,27 @@ function Details({ app, roster, team, sel, metaIds, onUseTeam }: {
 }
 
 /** Recommend the best teams of three from the roster, simulated off the main thread by `simulate`. */
-export function BuilderScreen({ app, roster, team, simulate, priorities, onPrioritiesChange, onUseTeam }: BuilderScreenProps) {
-  // Results and pins are tagged with the roster they belong to, so the render before the effect never draws them against a new roster.
+export function BuilderScreen({ app, roster, team, simulate, priorities, moves, onPrioritiesChange, onUseTeam }: BuilderScreenProps) {
+  // Results are tagged with the roster and moves they belong to, and pins with the roster, so the render before the effect never draws them against new ones.
   const eligible = useMemo(() => roster.flatMap((e, i) => (app.byId.has(e.speciesId) ? [i] : [])), [roster, app]);
-  const [tagged, setTagged] = useState<{ roster: readonly RosterEntry[]; sim: Sim }>({ roster, sim: { status: 'running', done: 0, total: eligible.length } });
+  const run = useMemo(() => ({ roster, moves }), [roster, moves]);
+  const [tagged, setTagged] = useState<{ run: typeof run; sim: Sim }>({ run, sim: { status: 'running', done: 0, total: eligible.length } });
   const [pinned, setPinned] = useState<{ roster: readonly RosterEntry[]; list: readonly number[] }>({ roster, list: [] });
-  const sim: Sim = tagged.roster === roster ? tagged.sim : { status: 'running', done: 0, total: eligible.length };
+  const sim: Sim = tagged.run === run ? tagged.sim : { status: 'running', done: 0, total: eligible.length };
   const pins = pinned.roster === roster ? pinned.list : [];
   const [selected, setSelected] = useState(0);
-  const latest = useRef(roster);
+  const latest = useRef(run);
 
   useEffect(() => {
-    latest.current = roster;
+    latest.current = run;
     setSelected(0);
-    const live = () => latest.current === roster;
-    const setSim = (next: Sim) => setTagged({ roster, sim: next });
-    simulate(app.format.id, eligible.map((i) => roster[i]!), (done, total) => live() && setSim({ status: 'running', done, total }))
+    const live = () => latest.current === run;
+    const setSim = (next: Sim) => setTagged({ run, sim: next });
+    simulate(app.format.id, eligible.map((i) => roster[i]!), (done, total) => live() && setSim({ status: 'running', done, total }), moves)
       // Candidates come back indexed into the eligible list; the rest of the screen uses roster indices.
       .then((result) => live() && setSim({ status: 'done', result: { ...result, candidates: result.candidates.map((c) => ({ ...c, index: eligible[c.index]! })) } }))
       .catch((err: unknown) => live() && setSim({ status: 'error', message: errorText(err) }));
-  }, [roster]);
+  }, [run]);
 
   const candidates = sim.status === 'done' ? sim.result.candidates : [];
   const metaIds = sim.status === 'done' ? sim.result.metaIds : [];

@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState } from 'preact/hooks';
 import {
-  formatCounts, moveAdvice, movesetInfo, opponentCard, rankSlots, ratingAt, searchSpecies, shieldAdvice, staySwitch, teamCells, typeReason,
-  type AppData, type BattleAction, type BattleSnapshot, type BattleState, type OpponentCard as Card, type FormatState,
+  formatCounts, moveAdvice, movesetInfo, opponentCard, rankSlots, ratingAt, searchSpecies, shieldAdvice, staySwitch, teamCells, typeReason, withMoves,
+  type AppData, type MoveOverrides, type BattleAction, type BattleSnapshot, type BattleState, type OpponentCard as Card, type FormatState,
 } from '../../../src/companion';
 import type { Combatant } from '../../../src/engine/combatant';
 import type { Cell } from '../../../src/matrix/cell';
 import { buildRosterCombatant, type RosterEntry } from '../../../src/matrix/teamMatrix';
 import { LogBar } from '../components/LogBar';
+import { MovesEditor } from '../components/MovesEditor';
 import { MovesPanel } from '../components/MovesPanel';
 import { OpponentCard } from '../components/OpponentCard';
 import { Suggestion } from '../components/Suggestion';
@@ -21,6 +22,9 @@ export interface BattleScreenProps {
   readonly battle: BattleState;
   readonly dispatch: (action: BattleAction) => void;
   readonly onGoToTeam: () => void;
+  /** Opponent movesets the user has seen, used instead of PvPoke's. */
+  readonly moves: MoveOverrides;
+  readonly onMovesChange: (speciesId: string, moveset: MoveOverrides[string] | null) => void;
 }
 
 interface Member {
@@ -58,7 +62,7 @@ function buildTeam(app: AppData, roster: readonly RosterEntry[], team: FormatSta
 const pips = (n: number): string => '●'.repeat(n) + '○'.repeat(2 - n);
 
 /** The mid-battle screen: opponent card, my team ranked against it, suggestions and the one-tap log. */
-export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }: BattleScreenProps) {
+export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam, moves: seen, onMovesChange }: BattleScreenProps) {
   const [query, setQuery] = useState('');
   const [dismissedAt, setDismissedAt] = useState<BattleSnapshot | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -66,9 +70,10 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
 
   const built = useMemo(() => buildTeam(app, roster, team), [app, roster, team]);
   const members = built?.ok ? built.members : null;
+  const oppApp = useMemo(() => withMoves(app, seen), [app, seen]);
   // Per-opponent caches, so moving between tabs or logging shields never re-simulates.
-  const cards = useMemo(() => new Map<string, Card>(), [app]);
-  const cellCache = useMemo(() => new Map<string, Cell[]>(), [members]);
+  const cards = useMemo(() => new Map<string, Card>(), [oppApp]);
+  const cellCache = useMemo(() => new Map<string, Cell[]>(), [members, oppApp]);
 
   const currentId = now.current === null ? null : now.opponents[now.current]?.speciesId ?? null;
   let card: Card | null = null;
@@ -76,7 +81,7 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
   if (currentId !== null) {
     // A saved battle can name a species that a data update has since dropped from the rankings.
     try {
-      card = cards.get(currentId) ?? opponentCard(app, currentId);
+      card = cards.get(currentId) ?? opponentCard(oppApp, currentId);
       cards.set(currentId, card);
     } catch (err) {
       cardError = errorText(err);
@@ -166,6 +171,7 @@ export function BattleScreen({ app, roster, team, battle, dispatch, onGoToTeam }
           </div>
         )}
         {card && <OpponentCard card={card} vsMe={moves && !theirsFainted ? moves.theirs : undefined} />}
+        {currentId !== null && <MovesEditor key={currentId} app={app} speciesId={currentId} seen={seen[currentId]} onChange={(m) => onMovesChange(currentId, m)} />}
         {cardError && <p class="error" role="alert">{cardError}</p>}
         {moves && onFieldMember && card && !theirsFainted && <MovesPanel myName={onFieldMember.name} theirName={card.name} advice={moves} />}
       </section>

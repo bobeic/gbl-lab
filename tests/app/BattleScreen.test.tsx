@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
-import { useReducer } from 'preact/hooks';
+import { useReducer, useState } from 'preact/hooks';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BattleScreen } from '../../app/src/screens/BattleScreen';
-import { battleReducer, defaultRosterEntry, initialBattle, type BattleAction, type FormatState } from '../../src/companion';
+import { battleReducer, defaultRosterEntry, initialBattle, type BattleAction, type FormatState, type MoveOverrides } from '../../src/companion';
 import type { RosterEntry } from '../../src/matrix/teamMatrix';
 import { testAppData } from '../companionFixture';
 
@@ -13,8 +13,13 @@ const entries = (...ids: string[]): RosterEntry[] => ids.map((id) => defaultRost
 
 function Harness({ roster, team, spy }: { roster: readonly RosterEntry[]; team: FormatState['team']; spy: (a: BattleAction) => void }) {
   const [battle, dispatch] = useReducer(battleReducer, undefined, initialBattle);
+  const [moves, setMoves] = useState<MoveOverrides>({});
   const send = (a: BattleAction) => { spy(a); dispatch(a); };
-  return <BattleScreen app={app} roster={roster} team={team} battle={battle} dispatch={send} onGoToTeam={() => {}} />;
+  const onMovesChange = (id: string, m: MoveOverrides[string] | null) => {
+    const { [id]: _, ...rest } = moves;
+    setMoves(m ? { ...rest, [id]: m } : rest);
+  };
+  return <BattleScreen app={app} roster={roster} team={team} battle={battle} dispatch={send} onGoToTeam={() => {}} moves={moves} onMovesChange={onMovesChange} />;
 }
 
 function setup(roster = entries('araquanid', 'medicham', 'azumarill'), team: FormatState['team'] = [0, 1, 2]) {
@@ -139,7 +144,7 @@ describe('BattleScreen', () => {
 
   it('survives a saved opponent that is no longer in the rankings', () => {
     const battle = { ...initialBattle(), now: { ...initialBattle().now, opponents: [{ speciesId: 'gone_from_rankings', fainted: false }], current: 0 } };
-    render(<BattleScreen app={app} roster={entries('araquanid', 'medicham', 'azumarill')} team={[0, 1, 2]} battle={battle} dispatch={() => {}} onGoToTeam={() => {}} />);
+    render(<BattleScreen app={app} roster={entries('araquanid', 'medicham', 'azumarill')} team={[0, 1, 2]} battle={battle} dispatch={() => {}} onGoToTeam={() => {}} moves={{}} onMovesChange={() => {}} />);
     expect(screen.getByRole('alert').textContent).toContain('gone_from_rankings');
     expect(screen.getByPlaceholderText('Search opponent…')).toBeTruthy();
   });
@@ -161,6 +166,20 @@ describe('BattleScreen', () => {
     expect(screen.getByRole('region', { name: 'Opponent' }).querySelector('img')?.getAttribute('src')).toMatch(/pm379\.icon\.png$/);
     expect(teamRows().map((r) => r.querySelector('img')?.getAttribute('src')?.split('/').pop()).sort())
       .toEqual(['pm184.icon.png', 'pm308.icon.png', 'pm752.icon.png']);
+  });
+
+  it('uses the moves you have seen instead of PvPoke\'s, and goes back', () => {
+    setup();
+    pickOpponent('mel', 'Melmetal');
+    const card = () => screen.getByRole('region', { name: 'Opponent' }).textContent;
+    fireEvent.click(screen.getByRole('button', { name: 'Change moves' }));
+    fireEvent.change(screen.getByLabelText('Charged move 2'), { target: { value: 'SUPER_POWER' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(card()).toContain('Superpower');
+    expect(screen.getByText(/PvPoke: Thunder Shock · Double Iron Bash · Dynamic Punch/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: "Use PvPoke's" }));
+    expect(card()).toContain('Dynamic Punch');
+    expect(screen.getByText('PvPoke moves')).toBeTruthy();
   });
 });
 

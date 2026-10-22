@@ -18,7 +18,7 @@ export interface MyMoveInfo {
   readonly percent: number;
   readonly effectiveness: number;
   readonly stab: boolean;
-  /** e.g. "lowers their Attack", or null for a move with no stat effect. */
+  /** e.g. "lowers their Attack 1 stage", or null for a move with no stat effect. */
   readonly effect: string | null;
 }
 
@@ -32,22 +32,28 @@ export interface MoveAdvice {
   /** My fast move against them. */
   readonly fast: Hit & { readonly name: string; readonly energyGain: number; readonly turns: number };
   readonly moves: readonly MyMoveInfo[];
-  /** Their charged moves against me, by move id. */
+  /** Their fast move and charged moves against me, by move id. */
   readonly theirs: ReadonlyMap<string, Hit>;
   /** The first charged move my side throws in the simulated matchup, or null if it never throws one. */
   readonly firstThrow: string | null;
 }
 
-function stageText(stages: StatPair, whose: 'your' | 'their'): string[] {
-  return (['Attack', 'Defense'] as const).flatMap((stat, i) =>
-    stages[i] === 0 ? [] : [`${stages[i]! > 0 ? 'raises' : 'lowers'} ${whose} ${stat}`]);
+type Whose = 'your' | 'their';
+
+function stageText(stages: StatPair, whose: Whose): string[] {
+  return (['Attack', 'Defense'] as const).flatMap((stat, i) => {
+    const n = stages[i]!;
+    return n === 0 ? [] : [`${n > 0 ? 'raises' : 'lowers'} ${whose} ${stat} ${Math.abs(n)} stage${Math.abs(n) === 1 ? '' : 's'}`];
+  });
 }
 
-function effectText(buffs: MoveBuffs | undefined): string | null {
+/** A move's stat changes in words, from the side of whoever throws it (`thrower`); null for a move with none. */
+export function effectText(buffs: MoveBuffs | undefined, thrower: Whose = 'your'): string | null {
   if (!buffs) return null;
+  const target: Whose = thrower === 'your' ? 'their' : 'your';
   const parts = buffs.target === 'both'
-    ? [...stageText(buffs.selfStages ?? [0, 0], 'your'), ...stageText(buffs.opponentStages ?? [0, 0], 'their')]
-    : stageText(buffs.stages, buffs.target === 'self' ? 'your' : 'their');
+    ? [...stageText(buffs.selfStages ?? [0, 0], thrower), ...stageText(buffs.opponentStages ?? [0, 0], target)]
+    : stageText(buffs.stages, buffs.target === 'self' ? thrower : target);
   if (parts.length === 0) return null;
   const text = parts.join(', ');
   return buffs.chance < 1 ? `${Math.round(buffs.chance * 100)}% chance: ${text}` : text;
@@ -61,7 +67,7 @@ export function moveAdvice(gd: GameData, me: Combatant, opp: Combatant, shields:
   };
   const f = me.fastMove;
   const fast = { name: f.name, energyGain: f.energyGain, turns: f.turns, ...hit(me, opp, f) };
-  const theirs = new Map(opp.chargedMoves.map((m) => [m.id, hit(opp, me, m)]));
+  const theirs = new Map([opp.fastMove, ...opp.chargedMoves].map((m) => [m.id, hit(opp, me, m)]));
   const moves = me.chargedMoves.map((m: ChargedMove): MyMoveInfo => {
     return {
       id: m.id, name: m.name, energy: m.energy,
