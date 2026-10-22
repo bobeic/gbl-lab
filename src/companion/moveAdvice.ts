@@ -32,7 +32,7 @@ export interface MoveAdvice {
   /** My fast move against them. */
   readonly fast: Hit & { readonly name: string; readonly energyGain: number; readonly turns: number };
   readonly moves: readonly MyMoveInfo[];
-  /** Their charged moves against me, by move id. */
+  /** Their fast move and charged moves against me, by move id. */
   readonly theirs: ReadonlyMap<string, Hit>;
   /** The first charged move my side throws in the simulated matchup, or null if it never throws one. */
   readonly firstThrow: string | null;
@@ -61,7 +61,7 @@ export function moveAdvice(gd: GameData, me: Combatant, opp: Combatant, shields:
   };
   const f = me.fastMove;
   const fast = { name: f.name, energyGain: f.energyGain, turns: f.turns, ...hit(me, opp, f) };
-  const theirs = new Map(opp.chargedMoves.map((m) => [m.id, hit(opp, me, m)]));
+  const theirs = new Map([opp.fastMove, ...opp.chargedMoves].map((m) => [m.id, hit(opp, me, m)]));
   const moves = me.chargedMoves.map((m: ChargedMove): MyMoveInfo => {
     return {
       id: m.id, name: m.name, energy: m.energy,
