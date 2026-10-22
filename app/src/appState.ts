@@ -1,10 +1,12 @@
-import { battleReducer, type BattleAction, type FormatId, type FormatState, type SavedApp } from '../../src/companion';
+import { battleReducer, type BattleAction, type FormatId, type FormatState, type MoveOverrides, type SavedApp } from '../../src/companion';
 import type { RosterEntry } from '../../src/matrix/teamMatrix';
 
 export type AppAction =
   | { type: 'setTeam'; roster: readonly RosterEntry[]; team: FormatState['team'] }
   | { type: 'battle'; action: BattleAction }
   | { type: 'setPriorities'; priorities: readonly string[] }
+  /** null goes back to the rankings' moveset. */
+  | { type: 'setMoves'; speciesId: string; moveset: MoveOverrides[string] | null }
   | { type: 'setFormat'; format: FormatId };
 
 /**
@@ -36,6 +38,10 @@ export function appReducer(state: SavedApp, action: AppAction): SavedApp {
     }
     case 'setPriorities':
       return withCurrent({ ...current, priorities: action.priorities });
+    case 'setMoves': {
+      const { [action.speciesId]: _, ...rest } = current.moves;
+      return withCurrent({ ...current, moves: action.moveset ? { ...rest, [action.speciesId]: action.moveset } : rest });
+    }
     case 'setFormat':
       return { ...state, format: action.format };
   }

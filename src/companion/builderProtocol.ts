@@ -1,5 +1,6 @@
 import type { GameData } from '../data/types';
 import type { MetaEntry } from '../matrix/meta';
+import type { MoveOverrides } from './appData';
 import type { RosterEntry } from '../matrix/teamMatrix';
 import type { FormatId } from './formats';
 import { simulateRoster, type SimResult } from './builderSim';
@@ -10,6 +11,8 @@ export interface BuilderRequest {
   readonly id: number;
   /** The meta to simulate against. */
   readonly format: FormatId;
+  /** Opponent movesets to use in the meta instead of the rankings' ones. */
+  readonly moves: MoveOverrides;
   readonly roster: readonly RosterEntry[];
 }
 

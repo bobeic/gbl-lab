@@ -72,6 +72,15 @@ export function loadFormats(file: unknown): Readonly<Record<FormatId, AppData>> 
   return Object.fromEntries(entries) as Record<FormatId, AppData>;
 }
 
+/** Opponent movesets the user has seen, by species id: [fast, charged1, charged2?]. */
+export type MoveOverrides = Readonly<Record<string, readonly [string, ...string[]]>>;
+
+/** The app with these movesets in place of the rankings' ones. */
+export function withMoves(app: AppData, moves: MoveOverrides): AppData {
+  const ranked = app.ranked.map((r) => (moves[r.speciesId] ? { ...r, moveset: moves[r.speciesId]! } : r));
+  return { ...app, ranked, byId: new Map(ranked.map((r) => [r.speciesId, r])) };
+}
+
 /** The open Great League view of a data file. */
 export function loadAppData(file: unknown): AppData {
   return loadFormats(file).great;

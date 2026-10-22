@@ -79,6 +79,8 @@ export function App({ fetchData = fetchAppData, store = browserStore(), simulate
           battle={fs.battle}
           dispatch={(action) => dispatch({ type: 'battle', action })}
           onGoToTeam={() => setView('team')}
+          moves={fs.moves}
+          onMovesChange={(speciesId, moveset) => dispatch({ type: 'setMoves', speciesId, moveset })}
         />
       )}
       {view === 'team' && (
@@ -91,6 +93,7 @@ export function App({ fetchData = fetchAppData, store = browserStore(), simulate
           team={fs.team}
           simulate={simulate}
           priorities={fs.priorities}
+          moves={fs.moves}
           onPrioritiesChange={(priorities) => dispatch({ type: 'setPriorities', priorities })}
           onUseTeam={(team) => dispatch({ type: 'setTeam', roster: saved.roster, team })}
         />

@@ -33,7 +33,7 @@ function setup(
   const onUseTeam = vi.fn();
   const onPrioritiesChange = vi.fn();
   const view = render(
-    <BuilderScreen app={app} roster={r} team={team} simulate={simulate} priorities={priorities} onPrioritiesChange={onPrioritiesChange} onUseTeam={onUseTeam} />,
+    <BuilderScreen app={app} roster={r} team={team} simulate={simulate} priorities={priorities} moves={{}} onPrioritiesChange={onPrioritiesChange} onUseTeam={onUseTeam} />,
   );
   return { onUseTeam, onPrioritiesChange, view };
 }
@@ -91,7 +91,7 @@ describe('BuilderScreen', () => {
     const simulate = vi.fn<Simulate>(async (_format, r) => ({
       candidates: r.map((_, i) => cand(i, [801, 778, 379, 184][i]!, [i])), skipped: [], metaIds,
     }));
-    render(<BuilderScreen app={fantasy} roster={mixed} team={null} simulate={simulate} priorities={[]} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
+    render(<BuilderScreen app={fantasy} roster={mixed} team={null} simulate={simulate} priorities={[]} moves={{}} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
     expect((await rows()).length).toBe(4);
     expect(simulate.mock.calls[0]![0]).toBe('fantasy');
     expect(simulate.mock.calls[0]![1].map((e) => e.speciesId)).toEqual(['melmetal', 'mimikyu', 'registeel', 'azumarill']);
@@ -132,9 +132,9 @@ describe('BuilderScreen', () => {
     expect(screen.getByRole('button', { name: 'Unpin Lanturn' })).toBeTruthy();
 
     const longer = [...roster, entry('swampert')];
-    view.rerender(<BuilderScreen app={app} roster={longer} team={null} simulate={simulate} priorities={[]} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
+    view.rerender(<BuilderScreen app={app} roster={longer} team={null} simulate={simulate} priorities={[]} moves={{}} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
     const shorter = roster.slice(0, 3);
-    view.rerender(<BuilderScreen app={app} roster={shorter} team={null} simulate={simulate} priorities={[]} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
+    view.rerender(<BuilderScreen app={app} roster={shorter} team={null} simulate={simulate} priorities={[]} moves={{}} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
     expect((await rows()).length).toBe(1);
 
     resolveStale({ candidates: [...four, cand(4, 260, [9])], skipped: [], metaIds });
@@ -150,9 +150,20 @@ describe('BuilderScreen', () => {
     const { view } = setup(simulate);
     await rows();
     fireEvent.change(screen.getByLabelText('Pin a Pokémon'), { target: { value: '3' } });
-    view.rerender(<BuilderScreen app={app} roster={roster.slice(0, 3)} team={null} simulate={simulate} priorities={[]} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
+    view.rerender(<BuilderScreen app={app} roster={roster.slice(0, 3)} team={null} simulate={simulate} priorities={[]} moves={{}} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
     expect(screen.getByText('Simulating 0 of 3…')).toBeTruthy();
     expect(screen.queryByRole('list', { name: 'Best teams' })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Unpin/ })).toBeNull();
+  });
+
+  it('re-simulates with the seen movesets when they change', async () => {
+    const simulate = vi.fn<Simulate>(fake({ candidates: four, skipped: [] }));
+    const { view } = setup(simulate);
+    await rows();
+    const moves = { melmetal: ['THUNDER_SHOCK', 'SUPER_POWER'] as const };
+    view.rerender(<BuilderScreen app={app} roster={roster} team={null} simulate={simulate} priorities={[]} moves={moves} onPrioritiesChange={vi.fn()} onUseTeam={vi.fn()} />);
+    await rows();
+    expect(simulate).toHaveBeenCalledTimes(2);
+    expect(simulate.mock.calls[1]![3]).toBe(moves);
   });
 });

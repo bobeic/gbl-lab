@@ -1,5 +1,6 @@
 import { parseRoster, type RosterEntry } from '../matrix/teamMatrix';
 import { initialBattle, type BattleSnapshot, type BattleState } from './battle';
+import type { MoveOverrides } from './appData';
 import { FORMATS, type FormatId } from './formats';
 
 /** The subset of the Web Storage API the companion uses, so tests can pass an in-memory store. */
@@ -8,13 +9,15 @@ export interface KeyValueStore {
   setItem(key: string, value: string): void;
 }
 
-/** What each format keeps separately: its team, battle and Builder priorities. */
+/** What each format keeps separately: its team, battle, Builder priorities and the opponent movesets the user has seen. */
 export interface FormatState {
   /** Indices into the shared roster, lead first; null until the user picks a team. */
   readonly team: readonly [number, number, number] | null;
   readonly battle: BattleState;
   /** Meta species ids the Builder weights extra, e.g. ones the user meets a lot. */
   readonly priorities: readonly string[];
+  /** Opponent movesets used instead of the rankings' ones. */
+  readonly moves: MoveOverrides;
 }
 
 export interface SavedApp {
@@ -28,7 +31,7 @@ export interface SavedApp {
 export const STORAGE_KEY = 'gbl-companion';
 
 export function defaultFormatState(): FormatState {
-  return { team: null, battle: initialBattle(), priorities: [] };
+  return { team: null, battle: initialBattle(), priorities: [], moves: {} };
 }
 
 const allFormats = (state: (id: FormatId) => FormatState): Record<FormatId, FormatState> =>
@@ -58,6 +61,9 @@ function isSnapshot(v: unknown): v is BattleSnapshot {
     && typeof v.awaitingWhoIsIn === 'boolean' && (v.notice === null || typeof v.notice === 'string');
 }
 
+const isMoveset = (v: unknown): v is readonly [string, ...string[]] =>
+  Array.isArray(v) && v.length >= 2 && v.length <= 3 && v.every((m) => typeof m === 'string' && m !== '');
+
 function isBattle(v: unknown): v is BattleState {
   return isRecord(v) && isSnapshot(v.now) && Array.isArray(v.past) && v.past.every(isSnapshot);
 }
@@ -70,6 +76,8 @@ function formatState(v: unknown, rosterSize: number): FormatState {
     battle: isBattle(v.battle) ? v.battle : initialBattle(),
     // Missing on saves from before priorities existed.
     priorities: Array.isArray(v.priorities) && v.priorities.every((p) => typeof p === 'string') ? v.priorities : [],
+    // Missing on saves from before move overrides existed; a malformed moveset is dropped on its own.
+    moves: isRecord(v.moves) ? Object.fromEntries(Object.entries(v.moves).filter(([, m]) => isMoveset(m))) as MoveOverrides : {},
   };
 }
 
