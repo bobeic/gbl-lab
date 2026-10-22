@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultRosterEntry, opponentCard } from '../src/companion';
+import { defaultRosterEntry, movesetInfo, opponentCard } from '../src/companion';
 import { GameDataError, RosterError } from '../src/errors';
 import { buildRosterCombatant } from '../src/matrix/teamMatrix';
 import { testAppData } from './companionFixture';
@@ -42,5 +42,12 @@ describe('roster combatants', () => {
     expect(defaultRosterEntry(app, 'medicham')).toEqual({
       speciesId: 'medicham', fastMoveId: 'PSYCHO_CUT', chargedMoveIds: ['ICE_PUNCH', 'DYNAMIC_PUNCH'],
     });
+  });
+});
+
+describe('movesetInfo effects', () => {
+  it('words stat changes from the thrower\'s side, with the number of stages', () => {
+    const { charged } = movesetInfo(app.gd, 'INCINERATE', ['OVERHEAT', 'BRUTAL_SWING']);
+    expect(charged.map((c) => c.effect)).toEqual(['lowers their Attack 2 stages', null]);
   });
 });

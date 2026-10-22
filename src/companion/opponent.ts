@@ -3,6 +3,7 @@ import { buildCombatant, type Combatant } from '../engine/combatant';
 import { GameDataError, UnsupportedPokemonError } from '../errors';
 import type { AppData } from './appData';
 import { countSequence } from './counts';
+import { effectText } from './moveAdvice';
 
 export interface MoveInfo {
   readonly id: string;
@@ -19,6 +20,8 @@ export interface ChargedInfo extends MoveInfo {
   readonly energy: number;
   /** Fast moves needed for the 1st, 2nd and 3rd throw. */
   readonly counts: readonly number[];
+  /** Its stat changes as thrown by the opponent, e.g. "lowers your Attack 1 stage"; null for none. */
+  readonly effect: string | null;
 }
 
 /** What the battle screen shows about the opponent on the field. */
@@ -42,7 +45,7 @@ export function movesetInfo(gd: GameData, fastMoveId: string, chargedMoveIds: re
   const charged = chargedMoveIds.map((id): ChargedInfo => {
     const c = gd.moves.get(id);
     if (c?.kind !== 'charged') throw new GameDataError(`${id} is not a charged move`);
-    return { id: c.id, name: c.name, type: c.type, energy: c.energy, counts: countSequence(f.energyGain, c.energy) };
+    return { id: c.id, name: c.name, type: c.type, energy: c.energy, counts: countSequence(f.energyGain, c.energy), effect: effectText(c.buffs, 'their') };
   });
   return { fast, charged };
 }

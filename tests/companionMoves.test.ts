@@ -32,8 +32,8 @@ describe('moveAdvice', () => {
   });
 
   it('explains the multipliers: STAB, double super effective, and side effects', () => {
-    expect(nightSlash).toMatchObject({ stab: true, effectiveness: 1, effect: '13% chance: raises your Attack' });
-    expect(icyWind).toMatchObject({ stab: false, effectiveness: SUPER_EFFECTIVE * SUPER_EFFECTIVE, effect: 'lowers their Attack' });
+    expect(nightSlash).toMatchObject({ stab: true, effectiveness: 1, effect: '13% chance: raises your Attack 1 stage' });
+    expect(icyWind).toMatchObject({ stab: false, effectiveness: SUPER_EFFECTIVE * SUPER_EFFECTIVE, effect: 'lowers their Attack 1 stage' });
     expect(icyWind!.counts).toEqual([7, 6, 7]);
   });
 

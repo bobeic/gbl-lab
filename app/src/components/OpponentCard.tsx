@@ -1,7 +1,7 @@
 import { PokemonIcon } from './PokemonIcon';
 import { formatCounts, type Hit, type OpponentCard as Card } from '../../../src/companion';
 
-/** Their likely moves: the fast move's energy and turns, each charged move's counts and, with one of mine on the field, each move's damage to it. */
+/** Their likely moves: the fast move's energy and turns, each charged move's counts and side effects and, with one of mine on the field, each move's damage to it. */
 export function OpponentCard({ card, vsMe }: { readonly card: Card; readonly vsMe?: ReadonlyMap<string, Hit> }) {
   return (
     <section class="opp" aria-label="Opponent">
@@ -17,7 +17,9 @@ export function OpponentCard({ card, vsMe }: { readonly card: Card; readonly vsM
             <span>{c.name} <span class="type">{c.type} · {c.energy}</span></span>
             <span class="count">{formatCounts(c.counts)}</span>
           </div>
-          {vsMe?.has(c.id) && <p class="small">~{vsMe.get(c.id)!.percent}% of your HP</p>}
+          {(vsMe?.has(c.id) || c.effect) && (
+            <p class="small">{[vsMe?.has(c.id) && `~${vsMe.get(c.id)!.percent}% of your HP`, c.effect].filter(Boolean).join(' · ')}</p>
+          )}
         </div>
       ))}
     </section>
