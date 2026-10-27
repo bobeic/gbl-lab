@@ -1,10 +1,10 @@
 # Matchup matrix report
 
-Generated 2026-10-21 by `npm run gen-matrix` from PvPoke commit `415436c1af47389c299104a83d46be0df5fa5f08`.
+Generated 2026-10-27 by `npm run gen-matrix` from PvPoke commit `d98f52174e01f8f67414bc6973599788d098c10e`.
 
 - Meta size: 150
 - Simulations: 202500
-- Elapsed: 39.2 s
+- Elapsed: 40.4 s
 - Mirror mismatches (off by more than 1): 67
 
 ## Excluded (unsupported) before the meta was full
