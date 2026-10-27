@@ -14,7 +14,8 @@ const roster = [
 const battle = [{ type: 'addOpponent', speciesId: 'melmetal' }, { type: 'iShielded' }, { type: 'mineFainted' }] as const;
 const great = { team: [2, 0, 1] as const, battle: battle.reduce(battleReducer, initialBattle()), priorities: ['melmetal'], moves: { turtonator: ['INCINERATE', 'BRUTAL_SWING', 'OVERHEAT'] as const } };
 const fantasy = { team: [0, 2, 1] as const, battle: initialBattle(), priorities: ['mimikyu'], moves: {} };
-const app: SavedApp = { version: 2, roster, format: 'fantasy', byFormat: { great, fantasy } };
+const halloweenmega = { team: null, battle: initialBattle(), priorities: [], moves: {} };
+const app: SavedApp = { version: 2, roster, format: 'fantasy', byFormat: { great, fantasy, halloweenmega } };
 const withSaved = (value: unknown) => memoryStore({ [STORAGE_KEY]: JSON.stringify(value) });
 
 describe('save / loadSaved', () => {
@@ -26,7 +27,7 @@ describe('save / loadSaved', () => {
 
   it('defaults to an empty roster, Great League, and nothing picked in any format', () => {
     const empty = { team: null, battle: initialBattle(), priorities: [], moves: {} };
-    expect(defaultSavedApp()).toEqual({ version: 2, roster: [], format: 'great', byFormat: { great: empty, fantasy: empty } });
+    expect(defaultSavedApp()).toEqual({ version: 2, roster: [], format: 'great', byFormat: { great: empty, fantasy: empty, halloweenmega: empty } });
     expect(loadSaved(memoryStore())).toEqual(defaultSavedApp());
   });
 
@@ -45,26 +46,28 @@ describe('save / loadSaved', () => {
     ['repeated', [0, 0, 1]],
   ])('drops only that format\'s team when it is %s', (_, team) => {
     const bad = { ...app, byFormat: { ...app.byFormat, great: { ...great, team } } };
-    expect(loadSaved(withSaved(bad))).toEqual({ ...app, byFormat: { great: { ...great, team: null }, fantasy } });
+    expect(loadSaved(withSaved(bad))).toEqual({ ...app, byFormat: { great: { ...great, team: null }, fantasy, halloweenmega } });
   });
 
   it('keeps the roster and starts a fresh battle when only a battle is malformed', () => {
     const bad = { ...app, byFormat: { ...app.byFormat, great: { ...great, battle: { now: { ...great.battle.now, myShields: -1 }, past: [] } } } };
-    expect(loadSaved(withSaved(bad))).toEqual({ ...app, byFormat: { great: { ...great, battle: initialBattle() }, fantasy } });
+    expect(loadSaved(withSaved(bad))).toEqual({ ...app, byFormat: { great: { ...great, battle: initialBattle() }, fantasy, halloweenmega } });
   });
 
   it('defaults priorities when missing or malformed, and an unknown format to Great League', () => {
     const { priorities: _, ...noPriorities } = great;
-    expect(loadSaved(withSaved({ ...app, byFormat: { great: noPriorities, fantasy } })).byFormat.great.priorities).toEqual([]);
-    expect(loadSaved(withSaved({ ...app, byFormat: { great: { ...great, priorities: [7] }, fantasy } })).byFormat.great.priorities).toEqual([]);
+    expect(loadSaved(withSaved({ ...app, byFormat: { great: noPriorities, fantasy, halloweenmega } })).byFormat.great.priorities).toEqual([]);
+    expect(loadSaved(withSaved({ ...app, byFormat: { great: { ...great, priorities: [7] }, fantasy, halloweenmega } })).byFormat.great.priorities).toEqual([]);
     expect(loadSaved(withSaved({ ...app, format: 'ultra' })).format).toBe('great');
   });
 
   it('defaults moves when missing, and drops only a malformed moveset', () => {
     const { moves: _, ...noMoves } = great;
-    expect(loadSaved(withSaved({ ...app, byFormat: { great: noMoves, fantasy } })).byFormat.great.moves).toEqual({});
+    expect(loadSaved(withSaved({ ...app, byFormat: { great: noMoves, fantasy, halloweenmega } })).byFormat.great.moves).toEqual({});
     const moves = { ...great.moves, melmetal: ['THUNDER_SHOCK'], azumarill: 'BUBBLE' };
-    expect(loadSaved(withSaved({ ...app, byFormat: { great: { ...great, moves }, fantasy } })).byFormat.great.moves).toEqual(great.moves);
+    expect(loadSaved(withSaved({ ...app, byFormat: { great: { ...great, moves }, fantasy, halloweenmega } })).byFormat.great.moves).toEqual(great.moves);
+    const superMega = { greninja_mega: ['WATER_SHURIKEN', 'HYDRO_CANNON', 'BRUTAL_SWING', 'SURF_PLUS'] };
+    expect(loadSaved(withSaved({ ...app, byFormat: { great, fantasy, halloweenmega: { ...halloweenmega, moves: superMega } } })).byFormat.halloweenmega.moves).toEqual(superMega);
   });
 
   it('a format missing from the save starts empty', () => {
@@ -74,7 +77,7 @@ describe('save / loadSaved', () => {
   it('migrates a version-1 save into Great League', () => {
     const v1 = { version: 1, roster, ...great };
     const empty = { team: null, battle: initialBattle(), priorities: [], moves: {} };
-    expect(loadSaved(withSaved(v1))).toEqual({ version: 2, roster, format: 'great', byFormat: { great, fantasy: empty } });
+    expect(loadSaved(withSaved(v1))).toEqual({ version: 2, roster, format: 'great', byFormat: { great, fantasy: empty, halloweenmega: empty } });
     const { priorities: _, ...v1NoPriorities } = v1;
     expect(loadSaved(withSaved(v1NoPriorities)).byFormat.great).toEqual({ ...great, priorities: [] });
   });

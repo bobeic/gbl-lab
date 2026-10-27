@@ -45,6 +45,8 @@ export interface ChargedMove {
   readonly damageMethod: string;
   readonly tags: readonly string[];
   /** Flags derived exactly as PvPoke GameMaster.js:880-896. */
+  /** PvPoke isMegaMove: a mega attacker deals MEGA_BONUS extra with it (DamageCalculator.js:40-41). */
+  readonly megaMove: boolean;
   readonly selfDebuffing: boolean;
   readonly selfAttackDebuffing: boolean;
   readonly selfDefenseDebuffing: boolean;
@@ -84,6 +86,8 @@ export interface Species {
   readonly base: { readonly atk: number; readonly def: number; readonly hp: number };
   readonly fastMoveIds: readonly string[];
   readonly chargedMoveIds: readonly string[];
+  /** Mega moves a super mega equips in a third charged slot (PvPoke extraChargedMoves). */
+  readonly extraChargedMoveIds: readonly string[];
   readonly eliteMoveIds: readonly string[];
   readonly tags: readonly string[];
   readonly nativeStatBuffs: StatPair;

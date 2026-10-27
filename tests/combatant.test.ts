@@ -48,12 +48,28 @@ describe('buildCombatant', () => {
     expect(() => buildCombatant(gd, { speciesId: 'medicham', fastMoveId: 'COUNTER', chargedMoveIds: [] })).toThrow(GameDataError);
   });
 
-  it('rejects unknown species, form changers and megas', () => {
+  it('rejects unknown species and form changers', () => {
     expect(() => buildCombatant(gd, { speciesId: 'nope', fastMoveId: 'X', chargedMoveIds: ['Y'] })).toThrow(GameDataError);
     expect(() => buildCombatant(gd, { speciesId: 'aegislash_shield', fastMoveId: 'AEGISLASH_CHARGE_PSYCHO_CUT', chargedMoveIds: ['SHADOW_BALL'] }))
       .toThrow(UnsupportedPokemonError);
-    expect(() => buildCombatant(gd, { speciesId: 'medicham_mega', fastMoveId: 'COUNTER', chargedMoveIds: ['ICE_PUNCH'] }))
-      .toThrow(UnsupportedPokemonError);
+  });
+
+  it('gives a super mega its mega move as a third charged move, but only two ordinary ones', () => {
+    const greninja = { speciesId: 'greninja_mega', fastMoveId: 'WATER_SHURIKEN' };
+    expect(buildCombatant(gd, { ...greninja, chargedMoveIds: ['HYDRO_CANNON', 'BRUTAL_SWING', 'SURF_PLUS'] }).chargedMoves.map((m) => m.id))
+      .toEqual(['HYDRO_CANNON', 'BRUTAL_SWING', 'SURF_PLUS']);
+    expect(() => buildCombatant(gd, { ...greninja, chargedMoveIds: ['HYDRO_CANNON', 'BRUTAL_SWING', 'NIGHT_SLASH'] })).toThrow(GameDataError);
+    expect(buildCombatant(gd, { ...greninja, chargedMoveIds: ['HYDRO_CANNON', 'SURF_PLUS'] }).chargedMoves.map((m) => m.id)).toEqual(['HYDRO_CANNON', 'SURF_PLUS']);
+    expect(() => buildCombatant(gd, { ...greninja, chargedMoveIds: ['SURF_PLUS', 'HYDRO_CANNON'] })).toThrow(GameDataError);
+    expect(() => buildCombatant(gd, { ...greninja, chargedMoveIds: ['SURF_PLUS'] })).toThrow(GameDataError);
+    expect(() => buildCombatant(gd, { speciesId: 'greninja', fastMoveId: 'WATER_SHURIKEN', chargedMoveIds: ['HYDRO_CANNON', 'SURF_PLUS'] }))
+      .toThrow(GameDataError);
+  });
+
+  it('builds a mega with ordinary moves from its own stats', () => {
+    const mega = buildCombatant(gd, { speciesId: 'sableye_mega', fastMoveId: 'SHADOW_CLAW', chargedMoveIds: ['FOUL_PLAY', 'DAZZLING_GLEAM'], cpCap: 1500 });
+    const base = buildCombatant(gd, { speciesId: 'sableye', fastMoveId: 'SHADOW_CLAW', chargedMoveIds: ['FOUL_PLAY', 'DAZZLING_GLEAM'], cpCap: 1500 });
+    expect(mega.stats.def).toBeGreaterThan(base.stats.def);
   });
 
   it('rejects IVs that cannot fit under the cap and levels above max', () => {
@@ -71,6 +87,17 @@ describe('moveDamage', () => {
     expect(moveDamage(med, 0, azu, 0, med.fastMove, 4)).toBe(4);
     expect(moveDamage(azu, 0, med, 0, azu.fastMove, 4)).toBe(5);
     expect(moveDamage(med, 0, azu, 0, med.chargedMoves[0]!, 4)).toBe(20);
+  });
+
+  it("adds PvPoke's mega bonus to a mega move: 1.3× for a super mega", () => {
+    const greninja = buildCombatant(gd, { speciesId: 'greninja_mega', fastMoveId: 'WATER_SHURIKEN', chargedMoveIds: ['SURF', 'NIGHT_SLASH', 'SURF_PLUS'] });
+    const azu = buildCombatant(gd, { speciesId: 'azumarill', fastMoveId: 'BUBBLE', chargedMoveIds: ['ICE_BEAM'] });
+    const [surf, , surfPlus] = greninja.chargedMoves;
+    const atk = effectiveStat(greninja, 'atk', 0, 4);
+    const def = effectiveStat(azu, 'def', 0, 4);
+    // PvPoke DamageCalculator.damage operand order, with MEGA_BONUS[3] as a float32
+    expect(moveDamage(greninja, 0, azu, 0, surfPlus!, 4)).toBe(Math.floor(55 * 1.2000000476837158203125 * (atk / def) * 0.625 * 1.2999999523162841796875 * 0.5 * 1.2999999523162841796875) + 1);
+    expect(moveDamage(greninja, 0, azu, 0, surf!, 4)).toBe(Math.floor(75 * 1.2000000476837158203125 * (atk / def) * 0.625 * 0.5 * 1.2999999523162841796875) + 1);
   });
 });
 

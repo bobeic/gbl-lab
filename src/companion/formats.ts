@@ -1,5 +1,5 @@
 /** The formats the companion supports, in picker order. Adding one: an entry here, then `npm run update-data`. */
-export type FormatId = 'great' | 'fantasy';
+export type FormatId = 'great' | 'fantasy' | 'halloweenmega';
 
 export interface Format {
   readonly id: FormatId;
@@ -11,6 +11,7 @@ export interface Format {
 export const FORMATS: readonly Format[] = [
   { id: 'great', title: 'Great League', cup: 'all' },
   { id: 'fantasy', title: 'Fantasy Cup', cup: 'fantasy' },
+  { id: 'halloweenmega', title: 'Mega Halloween Cup', cup: 'halloweenmega' },
 ];
 
 /** The vendored rankings file for a format (open Great League keeps its original name). */

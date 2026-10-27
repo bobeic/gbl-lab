@@ -9,7 +9,7 @@ export interface RankedSpecies {
   readonly name: string;
   /** 0-based position in the rankings. */
   readonly rank: number;
-  /** [fast, charged1, charged2?] */
+  /** [fast, charged1, charged2?, megaMove?] */
   readonly moveset: readonly [string, ...string[]];
 }
 
@@ -72,7 +72,7 @@ export function loadFormats(file: unknown): Readonly<Record<FormatId, AppData>> 
   return Object.fromEntries(entries) as Record<FormatId, AppData>;
 }
 
-/** Opponent movesets the user has seen, by species id: [fast, charged1, charged2?]. */
+/** Opponent movesets the user has seen, by species id: [fast, charged1, charged2?, megaMove?]. */
 export type MoveOverrides = Readonly<Record<string, readonly [string, ...string[]]>>;
 
 /** The app with these movesets in place of the rankings' ones. */

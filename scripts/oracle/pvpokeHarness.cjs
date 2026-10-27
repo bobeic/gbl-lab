@@ -47,6 +47,7 @@ function createPvpoke(srcDir, options) {
       p.selectMove('fast', mon.moveset[0]);
       p.selectMove('charged', mon.moveset[1], 0);
       if (mon.moveset[2]) p.selectMove('charged', mon.moveset[2], 1); else p.selectMove('charged', 'none', 1);
+      if (mon.moveset[3]) p.selectMove('charged', mon.moveset[3], 2);
       p.setShields(shields);
       if (fastOnly) p.farmEnergy = true;
       return p;

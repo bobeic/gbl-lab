@@ -3,6 +3,7 @@ import { loadDefaultGameData } from '../src/data/node';
 import type { ScriptedCharged } from '../src/policy/testPolicies';
 import type { OracleMon, PvpokeHarness, PvpokeRequest, PvpokeResult } from './oracle/harness';
 import { metaSpecies } from './oracle/meta';
+import type { RankingRow } from '../src/matrix/meta';
 import { loadPvpoke } from './oracle/load';
 
 
@@ -116,3 +117,25 @@ const formChange = {
 };
 writeFileSync('tests/fixtures/form-change-oracle.json', JSON.stringify(formChange));
 console.log(`form-change-oracle.json: ${formChange.corrected.length} corrected + ${formChange.unmodified.length} unmodified cases`);
+
+/** Every mega Mega Halloween Cup ranks (super megas with their mega move) against that cup's top 50 at all nine shield pairings. */
+function megaCases(): OracleCase[] {
+  const rankings: RankingRow[] = JSON.parse(readFileSync('data/rankings-halloweenmega-1500.json', 'utf8'));
+  const megas: OracleMon[] = rankings
+    .filter((r) => gd.species.get(r.speciesId)?.tags.includes('mega'))
+    .map((r) => ({ speciesId: r.speciesId, moveset: [...r.moveset] }));
+  const opponents = metaSpecies(gd, 50, 'data/rankings-halloweenmega-1500.json');
+  const cases: OracleCase[] = [];
+  for (const mon of megas) {
+    for (const opp of opponents) {
+      for (const s0 of [0, 1, 2]) {
+        for (const s1 of [0, 1, 2]) cases.push(record(pvpoke, { a: mon, b: opp, shields: [s0, s1], mode: 'default' }));
+      }
+    }
+  }
+  return cases;
+}
+
+const mega = megaCases();
+writeFileSync('tests/fixtures/mega-oracle.json', JSON.stringify({ upstream, cases: mega }));
+console.log(`mega-oracle.json: ${mega.length} cases`);

@@ -6,3 +6,6 @@ export const PVP_BONUS = 1.2999999523162841796875;
 export const STAB_MULTIPLIER = 1.2000000476837158203125;
 export const SHADOW_ATK = 1.2;
 export const SHADOW_DEF = 0.83333331;
+/** PvPoke MEGA_BONUS[2] (a mega) and [3] (a super mega, megaLevel 4). */
+export const MEGA_BONUS = 1.2000000476837158203125;
+export const SUPER_MEGA_BONUS = 1.2999999523162841796875;
