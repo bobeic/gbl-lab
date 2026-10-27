@@ -12,7 +12,7 @@ export interface RankingRow {
 /** A meta Pokémon exactly as simulated: species, moves, and the IVs/level PvPoke uses by default. */
 export interface MetaEntry {
   readonly speciesId: string;
-  /** [fast, charged1, charged2?] */
+  /** [fast, charged1, charged2?, megaMove?] */
   readonly moveset: readonly [string, ...string[]];
   readonly ivs: Ivs;
   readonly level: number;

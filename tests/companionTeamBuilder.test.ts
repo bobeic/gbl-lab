@@ -115,6 +115,13 @@ describe('recommendTeams', () => {
     for (const t of teams) expect(t.order.includes(0) && t.order.includes(2)).toBe(false);
   });
 
+  it('never puts two megas on a team', () => {
+    const mega = (index: number) => ({ ...plain(index), mega: true });
+    const teams = recommendTeams([mega(0), plain(1), mega(2), plain(3)], []);
+    expect(teams.length).toBe(2);
+    for (const t of teams) expect(t.order.includes(0) && t.order.includes(2)).toBe(false);
+  });
+
   it('every team contains all pins', () => {
     const four = [0, 1, 2, 3].map((i) => plain(i));
     const one = recommendTeams(four, [2]);

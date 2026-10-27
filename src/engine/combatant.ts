@@ -2,7 +2,7 @@ import type { ChargedMove, FastMove, FormChange, GameData, Move, PokemonType, Sp
 import { effectiveness } from '../data/typeChart';
 import { GameDataError, StatsError, UnsupportedPokemonError } from '../errors';
 import { bestLevelUnderCap, computeStats, type Ivs } from '../stats/stats';
-import { SHADOW_ATK, SHADOW_DEF, STAB_MULTIPLIER } from './constants';
+import { MEGA_BONUS, SHADOW_ATK, SHADOW_DEF, STAB_MULTIPLIER, SUPER_MEGA_BONUS } from './constants';
 import { buffMultiplier, calcDamage } from './damage';
 
 export interface PolicySettings {
@@ -58,7 +58,6 @@ export interface CombatantSpec {
 const DEFAULT_SETTINGS: PolicySettings = { baitShields: 1, optimizeMoveTiming: true, farmEnergy: false };
 
 function assertSupported(species: Species, moves: readonly Move[]): void {
-  if (species.tags.includes('mega')) throw new UnsupportedPokemonError(`${species.id} is a mega; not modelled yet`);
   for (const move of moves) {
     if (move.damageMethod !== 'default') throw new UnsupportedPokemonError(`${move.id} uses damage method ${move.damageMethod}`);
     if (move.kind === 'fast' && move.buffs) throw new UnsupportedPokemonError(`${move.id} is a fast move with buffs`);
@@ -170,15 +169,19 @@ export function buildCombatant(gd: GameData, spec: CombatantSpec): Combatant {
   if (!species.fastMoveIds.includes(spec.fastMoveId)) {
     throw new GameDataError(`${species.id} cannot learn fast move ${spec.fastMoveId}`);
   }
-  if (spec.chargedMoveIds.length < 1 || spec.chargedMoveIds.length > 2) {
-    throw new GameDataError(`${species.id} needs one or two charged moves, got ${spec.chargedMoveIds.length}`);
+  if (spec.chargedMoveIds.length < 1 || spec.chargedMoveIds.length > 3) {
+    throw new GameDataError(`${species.id} needs one to three charged moves, got ${spec.chargedMoveIds.length}`);
   }
   if (new Set(spec.chargedMoveIds).size !== spec.chargedMoveIds.length) {
     throw new GameDataError(`${species.id} cannot equip the same charged move twice (${spec.chargedMoveIds.join(', ')})`);
   }
-  for (const id of spec.chargedMoveIds) {
-    if (!species.chargedMoveIds.includes(id)) throw new GameDataError(`${species.id} cannot learn charged move ${id}`);
-  }
+  // PvPoke Pokemon.selectMove: up to two moves from the charged pool, then the third slot only from the extra (mega move) pool.
+  // An empty second slot is just skipped (Pokemon.js:729-733), so [charged, mega] is allowed.
+  const last = spec.chargedMoveIds.length - 1;
+  spec.chargedMoveIds.forEach((id, slot) => {
+    const asMega = slot === last && slot > 0 && species.extraChargedMoveIds.includes(id);
+    if (!asMega && (slot > 1 || !species.chargedMoveIds.includes(id))) throw new GameDataError(`${species.id} cannot learn charged move ${id}${slot > 1 ? ' as its third (mega) move' : ''}`);
+  });
   const fastMove = resolveMove(gd, species, spec.fastMoveId, 'fast');
   const chargedMoves = spec.chargedMoveIds.map((id) => resolveMove(gd, species, id, 'charged'));
   assertSupported(species, [fastMove, ...chargedMoves]);
@@ -236,11 +239,14 @@ export function moveDamage(
   // PvPoke DamageCalculator.js:71: a share of the target's max HP (Gulp Missile)
   if (move.damageMethod === 'percentMaxHP') return Math.floor((move.power / 100) * defender.stats.hp) + 1;
   const stab = attacker.types.includes(move.type) ? STAB_MULTIPLIER : 1;
+  const tags = attacker.species.tags;
+  const mega = move.kind === 'charged' && move.megaMove && tags.includes('mega') ? (tags.includes('supermega') ? SUPER_MEGA_BONUS : MEGA_BONUS) : 1;
   return calcDamage(
     move.power,
     stab,
     effectiveStat(attacker, 'atk', attackerAtkStage, divisor),
     effectiveStat(defender, 'def', defenderDefStage, divisor),
     effectiveness(move.type, defender.types),
+    mega,
   );
 }

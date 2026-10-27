@@ -127,6 +127,7 @@ function parseMove(m: unknown, index: number): Move {
     ...common,
     kind: 'charged',
     energy: num(m, 'energy', id),
+    megaMove: m.isMegaMove === true,
     selfDebuffing,
     selfAttackDebuffing: selfDebuffing && b!.stages[0] < 0,
     selfDefenseDebuffing: selfDebuffing && b!.stages[1] < 0,
@@ -145,13 +146,14 @@ function parseSpecies(p: unknown, index: number, moves: ReadonlyMap<string, Move
 
   const fastMoveIds = strArray(p, 'fastMoves', id, true);
   const chargedMoveIds = strArray(p, 'chargedMoves', id, true);
+  const extraChargedMoveIds = strArray(p, 'extraChargedMoves', id, false);
   // Existence only, not kind: the real gamemaster lists TRANSFORM (ditto) and STRUGGLE (magearna) in the
   // fast slot although their energyGain is 0 (PvPoke GameMaster.js:831 classes them "charged") and PvPoke
   // resolves species moves by id without checking the slot.
   for (const moveId of fastMoveIds) {
     if (!moves.has(moveId)) throw new GameDataError(`${id}: unknown fast move ${moveId}`);
   }
-  for (const moveId of chargedMoveIds) {
+  for (const moveId of [...chargedMoveIds, ...extraChargedMoveIds]) {
     if (!moves.has(moveId)) throw new GameDataError(`${id}: unknown charged move ${moveId}`);
   }
 
@@ -179,6 +181,7 @@ function parseSpecies(p: unknown, index: number, moves: ReadonlyMap<string, Move
     base: { atk: num(p.baseStats, 'atk', id), def: num(p.baseStats, 'def', id), hp: num(p.baseStats, 'hp', id) },
     fastMoveIds,
     chargedMoveIds,
+    extraChargedMoveIds,
     eliteMoveIds: strArray(p, 'eliteMoves', id, false),
     tags: strArray(p, 'tags', id, false),
     nativeStatBuffs: p.nativeStatBuffs === undefined ? [0, 0] : pair(p.nativeStatBuffs, id),

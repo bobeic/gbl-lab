@@ -33,7 +33,7 @@ A web app for use mid-battle (`app/`, logic in `src/companion/`), laid out in th
  One-tap buttons log shields, faints and switches, with Undo. Your roster and the battle in progress are saved in the browser, so switching to Pokémon GO and back loses nothing. It works offline once loaded and can be added to the iPhone home screen.
 
 - Ratings assume a fresh 1v1 at the current shields: **HP and energy aren't tracked**.
-- **Formats:** a picker at the top switches between open Great League and Fantasy Cup (Dragon, Steel, Fairy). Your collection is shared; each format keeps its own team, battle and Builder priorities. In a format, only the species PvPoke ranks there are shown or searchable, and every Pokémon, yours included, uses that format's PvPoke ranking moveset.
+- **Formats:** a picker at the top switches between open Great League, Fantasy Cup (Dragon, Steel, Fairy) and Mega Halloween Cup (Bug, Poison, Ghost, Dark, Fairy; megas eligible, the Builder allows one per team, and a super mega such as Mega Greninja gets a third Mega move slot). Your collection is shared; each format keeps its own team, battle and Builder priorities. In a format, only the species PvPoke ranks there are shown or searchable, and every Pokémon, yours included, uses that format's PvPoke ranking moveset.
 - Only species in the format's PvPoke rankings are searchable. Opponents the engine can't simulate (e.g. Aegislash) still show moves and counts, with "Can't simulate" instead of ratings.
 - Team setup takes the same roster JSON as `npm run matrix -- --roster` (import and export on the Team tab).
 

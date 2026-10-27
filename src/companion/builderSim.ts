@@ -32,7 +32,8 @@ export function simulateRoster(
         ratings = opponents.map((o) => simulateDiagonal(gd, me, o));
         cache.set(key, ratings);
       }
-      candidates.push({ index: i, dex: gd.species.get(entry.speciesId)!.dex, ratings });
+      const species = gd.species.get(entry.speciesId)!;
+      candidates.push({ index: i, dex: species.dex, mega: species.tags.includes('mega'), ratings });
     } catch (err) {
       if (!(err instanceof RosterError)) throw err;
       skipped.push({ name: entry.label ?? entry.speciesId, reason: err.message });

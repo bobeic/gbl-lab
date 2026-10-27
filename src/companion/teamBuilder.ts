@@ -5,6 +5,8 @@ export type Diag = readonly [r00: number, r11: number, r22: number];
 export interface Candidate {
   readonly index: number;
   readonly dex: number;
+  /** A mega: a team may have at most one. */
+  readonly mega?: boolean;
   readonly ratings: readonly Diag[];
 }
 
@@ -114,7 +116,7 @@ export function scoreOrder(team: Team, weighting = metaWeights(team[0].ratings.l
 
 /**
  * The best `limit` teams of three from `candidates` (in roster order) that contain every pinned roster index,
- * never two of the same Pokédex number, each in its best order. Ties keep roster order.
+ * never two of the same Pokédex number or two megas, each in its best order. Ties keep roster order.
  */
 export function recommendTeams(
   candidates: readonly Candidate[], pins: readonly number[],
@@ -127,6 +129,7 @@ export function recommendTeams(
       for (let k = j + 1; k < n; k++) {
         const members = [candidates[i]!, candidates[j]!, candidates[k]!] as const;
         if (new Set(members.map((m) => m.dex)).size < 3) continue;
+        if (members.filter((m) => m.mega).length > 1) continue;
         if (!pins.every((p) => members.some((m) => m.index === p))) continue;
         let best: TeamScore | undefined;
         for (const [a, b, c] of ORDERS) {

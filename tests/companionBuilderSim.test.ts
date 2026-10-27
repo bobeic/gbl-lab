@@ -25,11 +25,13 @@ describe('simulateDiagonal', () => {
 });
 
 describe('simulateRoster', () => {
-  it('simulates each usable entry against the meta and records dex', () => {
-    const { candidates, skipped } = simulateRoster(gd, [medicham, azumarill], meta, new Map());
+  it('simulates each usable entry against the meta and records dex and mega', () => {
+    const sableye: RosterEntry = { speciesId: 'sableye_mega', fastMoveId: 'SHADOW_CLAW', chargedMoveIds: ['FOUL_PLAY', 'DAZZLING_GLEAM'] };
+    const { candidates, skipped } = simulateRoster(gd, [medicham, azumarill, sableye], meta, new Map());
     expect(skipped).toEqual([]);
-    expect(candidates.map((c) => c.index)).toEqual([0, 1]);
-    expect(candidates.map((c) => c.dex)).toEqual([308, 184]);
+    expect(candidates.map((c) => c.index)).toEqual([0, 1, 2]);
+    expect(candidates.map((c) => c.dex)).toEqual([308, 184, 302]);
+    expect(candidates.map((c) => c.mega)).toEqual([false, false, true]);
     for (const c of candidates) expect(c.ratings.length).toBe(3);
   });
 

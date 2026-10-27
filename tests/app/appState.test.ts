@@ -8,7 +8,7 @@ const roster = ['melmetal', 'medicham', 'azumarill', 'registeel', 'mimikyu'].map
 const base = defaultSavedApp();
 const state: SavedApp = {
   ...base, roster,
-  byFormat: { great: { ...base.byFormat.great, team: [1, 2, 3] }, fantasy: { ...base.byFormat.fantasy, team: [4, 0, 3] } },
+  byFormat: { great: { ...base.byFormat.great, team: [1, 2, 3] }, fantasy: { ...base.byFormat.fantasy, team: [4, 0, 3] }, halloweenmega: base.byFormat.halloweenmega },
 };
 
 describe('appReducer', () => {

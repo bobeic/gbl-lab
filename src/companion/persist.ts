@@ -62,7 +62,7 @@ function isSnapshot(v: unknown): v is BattleSnapshot {
 }
 
 const isMoveset = (v: unknown): v is readonly [string, ...string[]] =>
-  Array.isArray(v) && v.length >= 2 && v.length <= 3 && v.every((m) => typeof m === 'string' && m !== '');
+  Array.isArray(v) && v.length >= 2 && v.length <= 4 && v.every((m) => typeof m === 'string' && m !== '');
 
 function isBattle(v: unknown): v is BattleState {
   return isRecord(v) && isSnapshot(v.now) && Array.isArray(v.past) && v.past.every(isSnapshot);

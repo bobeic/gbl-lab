@@ -10,7 +10,7 @@ Status: **fixed** (we deviate from PvPoke to match the game), **open** (known, n
 |---|---|---|---|
 | M1 | PvPoke switches Morpeko to Hangry after its first charged move and never back. In the game it switches on every charged move. | fixed (form-changes sub-project) | `corrections.ts` gives `morpeko_hangry` a rule back to Full Belly. |
 | M2 | Aegislash and other form changers whose forms differ in stats, or that use other triggers, are not supported. | out of scope | Rejected with `UnsupportedPokemonError`. |
-| M3 | Mega Pokémon and moves whose damage is a percentage of max HP (other than Cramorant's Gulp Missile) are not supported. | out of scope | Rejected with `UnsupportedPokemonError`. |
+| M3 | Moves whose damage is a percentage of max HP (other than Cramorant's Gulp Missile) are not supported. Megas are, including super megas' third charged move with PvPoke's mega bonus, and match PvPoke (`tests/fixtures/mega-oracle.json`); PvPoke's super mega level cap of 52 is not modelled (see the battle engine spec). | out of scope | Rejected with `UnsupportedPokemonError`. |
 | M4 | Battles are 1v1 only: no switching, switch timer or faint replacement. | out of scope | Needed for 3v3. When added: Morpeko returns to Full Belly on switch; busted Mimikyu stays busted and keeps its −1 Defense; ordinary stat changes reset. |
 | M5 | The order of events within a turn for form changes (buffs, then attacker form change, then defender form change) follows PvPoke's code. It is not confirmed by official patch notes. | open (unverified) | Outcomes don't depend on it today, because Morpeko's types don't change and Mimikyu's bust happens after the hit lands. |
 
