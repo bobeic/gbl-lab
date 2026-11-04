@@ -33,7 +33,7 @@ A web app for use mid-battle (`app/`, logic in `src/companion/`), laid out in th
  One-tap buttons log shields, faints and switches, with Undo. Your roster and the battle in progress are saved in the browser, so switching to Pokémon GO and back loses nothing. It works offline once loaded and can be added to the iPhone home screen.
 
 - Ratings assume a fresh 1v1 at the current shields: **HP and energy aren't tracked**.
-- **Formats:** a picker at the top switches between open Great League, Fantasy Cup (Dragon, Steel, Fairy) and Mega Halloween Cup (Bug, Poison, Ghost, Dark, Fairy; megas eligible, the Builder allows one per team, and a super mega such as Mega Greninja gets a third Mega move slot). Your collection is shared; each format keeps its own team, battle and Builder priorities. In a format, only the species PvPoke ranks there are shown or searchable, and every Pokémon, yours included, uses that format's PvPoke ranking moveset.
+- **Formats:** a picker at the top switches between open Great League, Fantasy Cup (Dragon, Steel, Fairy), Mega Halloween Cup (Bug, Poison, Ghost, Dark, Fairy; megas eligible) and Mega Great League (open Great League with megas eligible). In the mega formats the Builder allows one mega per team, and a super mega such as Mega Greninja or Mega Sableye gets a third Mega move slot. Your collection is shared; each format keeps its own team, battle and Builder priorities. In a format, only the species PvPoke ranks there are shown or searchable, and every Pokémon, yours included, uses that format's PvPoke ranking moveset.
 - Only species in the format's PvPoke rankings are searchable. Opponents the engine can't simulate (e.g. Aegislash) still show moves and counts, with "Can't simulate" instead of ratings.
 - Team setup takes the same roster JSON as `npm run matrix -- --roster` (import and export on the Team tab).
 
@@ -72,7 +72,7 @@ From the latest `npm run compare-oracle` (`reports/oracle-report.md`):
 - Exact matches (both ratings identical): 15,150
 - Winner agreement: 100.00% (target >= 98%)
 - Median rating difference: 0 (target <= 25)
-- Form changes (`tests/fixtures/form-change-oracle.json`): 2,700 Mimikyu/Morpeko/Cramorant cases against corrected PvPoke and 1,782 Mimikyu/Cramorant cases against unmodified PvPoke, all exact. Cramorant is checked with its ranking moveset (Peck / Dive / Fly) only; Surf movesets are unit-tested.
+- Form changes (`tests/fixtures/form-change-oracle.json`): 2,700 Mimikyu/Morpeko/Cramorant cases against corrected PvPoke and 1,782 Mimikyu/Cramorant cases against unmodified PvPoke, all exact. Cramorant is checked with its ranking moveset (Peck / Surf / Fly) only; Dive movesets are unit-tested.
 - Matchup matrix: `simulateCell` reproduces every one of the 15,150 oracle cases exactly (`tests/matrixCell.test.ts`).
 
 ## Known exclusions
