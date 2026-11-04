@@ -72,7 +72,7 @@ From the latest `npm run compare-oracle` (`reports/oracle-report.md`):
 - Exact matches (both ratings identical): 15,150
 - Winner agreement: 100.00% (target >= 98%)
 - Median rating difference: 0 (target <= 25)
-- Form changes (`tests/fixtures/form-change-oracle.json`): 2,700 Mimikyu/Morpeko/Cramorant cases against corrected PvPoke and 1,782 Mimikyu/Cramorant cases against unmodified PvPoke, all exact. Cramorant is checked with its ranking moveset (Peck / Dive / Fly) only; Surf movesets are unit-tested.
+- Form changes (`tests/fixtures/form-change-oracle.json`): 2,700 Mimikyu/Morpeko/Cramorant cases against corrected PvPoke and 1,782 Mimikyu/Cramorant cases against unmodified PvPoke, all exact. Cramorant is checked with its ranking moveset (Peck / Surf / Fly) only; Dive movesets are unit-tested.
 - Matchup matrix: `simulateCell` reproduces every one of the 15,150 oracle cases exactly (`tests/matrixCell.test.ts`).
 
 ## Known exclusions
