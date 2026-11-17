@@ -118,13 +118,13 @@ const formChange = {
 writeFileSync('tests/fixtures/form-change-oracle.json', JSON.stringify(formChange));
 console.log(`form-change-oracle.json: ${formChange.corrected.length} corrected + ${formChange.unmodified.length} unmodified cases`);
 
-/** Every mega Mega Halloween Cup ranks (super megas with their mega move) against that cup's top 50 at all nine shield pairings. */
-function megaCases(): OracleCase[] {
-  const rankings: RankingRow[] = JSON.parse(readFileSync('data/rankings-halloweenmega-1500.json', 'utf8'));
+/** Every mega a cup ranks (super megas with their mega move) against that cup's top 50 at all nine shield pairings. */
+function megaCases(rankingsPath: string): OracleCase[] {
+  const rankings: RankingRow[] = JSON.parse(readFileSync(rankingsPath, 'utf8'));
   const megas: OracleMon[] = rankings
     .filter((r) => gd.species.get(r.speciesId)?.tags.includes('mega'))
     .map((r) => ({ speciesId: r.speciesId, moveset: [...r.moveset] }));
-  const opponents = metaSpecies(gd, 50, 'data/rankings-halloweenmega-1500.json');
+  const opponents = metaSpecies(gd, 50, rankingsPath);
   const cases: OracleCase[] = [];
   for (const mon of megas) {
     for (const opp of opponents) {
@@ -136,6 +136,8 @@ function megaCases(): OracleCase[] {
   return cases;
 }
 
-const mega = megaCases();
-writeFileSync('tests/fixtures/mega-oracle.json', JSON.stringify({ upstream, cases: mega }));
-console.log(`mega-oracle.json: ${mega.length} cases`);
+for (const [cup, out] of [['halloweenmega', 'mega-oracle.json'], ['laic2027', 'laic-mega-oracle.json']] as const) {
+  const mega = megaCases(`data/rankings-${cup}-1500.json`);
+  writeFileSync(`tests/fixtures/${out}`, JSON.stringify({ upstream, cases: mega }));
+  console.log(`${out}: ${mega.length} cases`);
+}

@@ -67,9 +67,9 @@ describe('shieldAdvice', () => {
 describe('shieldAdvice against a Cramorant opponent', () => {
   it("lists Cramorant's own charged moves, never a Gulp Missile", () => {
     const cram = theirs('cramorant');
-    expect(cram.chargedMoves.map((m) => m.id)).toEqual(['DIVE', 'FLY']);
+    expect(cram.chargedMoves.map((m) => m.id)).toEqual(['SURF', 'FLY']);
     const advice = shieldAdvice(app.gd, mine('azumarill'), cram, [1, 1]);
     expect(advice.length).toBeGreaterThan(0);
-    for (const a of advice) expect(['DIVE', 'FLY']).toContain(a.moveId);
+    for (const a of advice) expect(['SURF', 'FLY']).toContain(a.moveId);
   });
 });

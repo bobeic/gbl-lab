@@ -19,7 +19,7 @@ describe('MovesEditor', () => {
   });
 
   it('has no mega move slot for other Pokémon', () => {
-    render(<MovesEditor app={app} speciesId="sableye_mega" seen={undefined} onChange={vi.fn()} />);
+    render(<MovesEditor app={app} speciesId="mawile_mega" seen={undefined} onChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Change moves' }));
     expect(screen.queryByLabelText('Mega move')).toBeNull();
   });
