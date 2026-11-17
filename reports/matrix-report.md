@@ -4,7 +4,7 @@ Generated 2026-11-17 by `npm run gen-matrix` from PvPoke commit `d02018eb6bfc4a0
 
 - Meta size: 150
 - Simulations: 202500
-- Elapsed: 43.0 s
+- Elapsed: 42.7 s
 - Mirror mismatches (off by more than 1): 59
 
 ## Excluded (unsupported) before the meta was full

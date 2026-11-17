@@ -43,6 +43,16 @@ describe('buildAppDataFile / loadAppData', () => {
     expect(great.byId.get('turtonator')?.moveset).toEqual(['INCINERATE', 'BRUTAL_SWING', 'DRAGON_CLAW']);
   });
 
+  it('loads Mega Great League with megas ranked, super megas carrying their mega move', () => {
+    const { great, megagreat } = loadFormats(JSON.parse(JSON.stringify(file)));
+    expect(megagreat.format.title).toBe('Mega Great League');
+    expect(megagreat.gd).toBe(great.gd);
+    expect(great.byId.has('sableye_mega')).toBe(false);
+    expect(megagreat.byId.get('sableye_mega')?.rank).toBe(0);
+    expect(megagreat.byId.get('sableye_mega')?.moveset).toEqual(['SHADOW_CLAW', 'FOUL_PLAY', 'DAZZLING_GLEAM', 'NIGHT_SHADE_PLUS']);
+    expect(megagreat.byId.get('melmetal')?.moveset).toEqual(['THUNDER_SHOCK', 'DOUBLE_IRON_BASH', 'DYNAMIC_PUNCH']);
+  });
+
   it('formatEntry gives a Pokémon the format\'s moves and keeps its IVs', () => {
     const { great, fantasy } = loadFormats(JSON.parse(JSON.stringify(file)));
     const turt = { speciesId: 'turtonator', fastMoveId: 'EMBER', chargedMoveIds: ['FLAMETHROWER'], ivs: { atk: 1, def: 15, hp: 15 } };
