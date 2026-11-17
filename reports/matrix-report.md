@@ -1,10 +1,10 @@
 # Matchup matrix report
 
-Generated 2026-11-04 by `npm run gen-matrix` from PvPoke commit `e02bde78d19be9b9099b5a6629c6a8d0835a53be`.
+Generated 2026-11-17 by `npm run gen-matrix` from PvPoke commit `d02018eb6bfc4a041cca69d7bc9de0d5179a8365`.
 
 - Meta size: 150
 - Simulations: 202500
-- Elapsed: 75.5 s
+- Elapsed: 42.7 s
 - Mirror mismatches (off by more than 1): 59
 
 ## Excluded (unsupported) before the meta was full
@@ -30,11 +30,11 @@ a's rating vs b at shields sa-sb, and b's rating vs a at sb-sa. These should add
 | sableye_shadow | sableye | 1-0 | 568 | 480 |
 | thievul | thievul | 0-0 | 547 | 547 |
 | thievul | thievul | 1-1 | 527 | 527 |
-| snorlax | snorlax_shadow | 1-1 | 368 | 580 |
-| snorlax | snorlax_shadow | 2-2 | 419 | 537 |
 | rillaboom | rillaboom | 0-0 | 546 | 546 |
 | rillaboom | rillaboom | 0-1 | 399 | 666 |
 | rillaboom | rillaboom | 0-2 | 279 | 767 |
 | rillaboom | rillaboom | 1-1 | 523 | 523 |
 | rillaboom | rillaboom | 1-2 | 414 | 624 |
 | rillaboom | dusclops_shadow | 2-2 | 337 | 449 |
+| electrode_hisuian | pelipper | 0-0 | 726 | 213 |
+| forretress_shadow | forretress_shadow | 1-1 | 519 | 519 |
